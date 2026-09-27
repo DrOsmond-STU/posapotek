@@ -1,0 +1,5 @@
+# Blokir akses ke metadata repo & berkas non-publik
+RedirectMatch 404 /\.git
+RedirectMatch 404 ^/(scripts|README\.md|\.gitignore)
+Options -Indexes
+DirectoryIndex index.html
