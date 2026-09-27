@@ -255,7 +255,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .topbar .menu-btn { display: none; }
 .search {
-  flex: 1; max-width: 460px; display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0; max-width: 460px; display: flex; align-items: center; gap: 8px;
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px;
 }
 .search input { flex: 1; min-width: 0; border: 0; background: transparent; outline: none; }
@@ -773,6 +773,10 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size
   .form-grid, .form-grid.cols-3, .form-grid.cols-4 { grid-template-columns: minmax(0, 1fr); }
   .page-head h1 { font-size: 22px; }
   .search kbd { display: none; }
+  .topbar { gap: 8px; }
+  .topbar-right { gap: 6px; }
+  .topbar-right .icon-btn[data-go="pengaturan"] { display: none; }
+  .icon-btn { width: 38px; height: 38px; }
   .pay-methods { grid-template-columns: repeat(2, 1fr); }
   .prod-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px; max-height: 60vh; }
   .prod .thumb { height: 48px; }
