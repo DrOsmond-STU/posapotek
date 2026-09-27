@@ -78,7 +78,7 @@
       const o = j.pool[(n * 7 + k) % j.pool.length];
       const [sat] = satBeli(o);
       const h = hnaBeli(o);
-      return { o, sat, qty: Math.max(1, Math.round(per / (h * 0.95))), harga: h, disc: 5 };
+      return { o, sat, qty: Math.min(sp.jenis === "Reguler" ? 60 : 20, Math.max(2, Math.round(per / (h * 0.95)))), harga: h, disc: 5 };
     });
   }
 
@@ -412,8 +412,7 @@
               { label: "Qty diterima", cls: "num nowrap", render: (r, k) => `<input class="input sm pn-q" type="number" min="0" data-k="${k}" value="${r.terima}" style="width:76px;text-align:right" aria-label="Qty diterima">` },
               { label: "Batch", render: (r) => `<input class="input sm mono" value="${r.batch}" style="width:110px" aria-label="Batch">` },
               { label: "ED", render: (r, k) => `<input class="input sm pn-ed" type="date" data-k="${k}" value="${r.ed}" aria-label="Tanggal kedaluwarsa">` },
-              { label: "Harga", cls: "num nowrap", render: (r) => rp(r.harga) },
-              { label: "Disc", cls: "num nowrap", render: (r) => `${r.disc}%` },
+              { label: "Harga", cls: "num nowrap", render: (r) => `${rp(r.harga)}<div class="t-sub">disc ${r.disc}%</div>` },
               { label: "Subtotal", cls: "num nowrap", render: (r) => `<b class="pn-sub">${rp(r.terima * r.harga * (1 - r.disc / 100))}</b>` },
               { label: "Kesesuaian", render: (r) => `<div class="stack" style="gap:4px"><span class="pn-qi">${qtyInfo(r.qty, r.terima)}</span><span class="pn-ei">${edInfo(r.ed)[1]}</span></div>` },
             ],
@@ -439,14 +438,13 @@
         title: "Riwayat penerimaan", desc: "Bukti Penerimaan Barang (BPB) 10 hari terakhir", icon: "history", flush: true,
         body: table({
           columns: [
-            { label: "No. BPB", render: (h) => `<span class="mono strong">${h[0]}</span><div class="t-sub">${tgl(dIso(h[1]))}</div>` },
+            { label: "No. BPB", render: (h) => `<span class="mono strong">${h[0]}</span><div class="t-sub">${tgl(dIso(h[1]))} · ${esc(h[8])}</div>` },
             { label: "No. SP", render: (h) => `<span class="mono small">${h[2]}</span>` },
             { label: "Supplier", render: (h) => esc(supShort(h[3])) },
             { label: "No. faktur", render: (h) => `<span class="mono small">${h[4]}</span>` },
             { label: "Item", cls: "num nowrap", render: (h) => h[5] },
             { label: "Total", cls: "num nowrap", render: (h) => `<b>${rp(h[6])}</b>` },
             { label: "Jatuh tempo", render: (h) => `${tgl(dIso(h[7] + h[1]))}<div class="t-sub">${jtBadge(h[7] + h[1])}</div>` },
-            { label: "Penerima", render: (h) => esc(h[8]) },
             { label: "Status", render: (h) => status(h[9]) },
             { label: "", cls: "actions", render: (h) => UI.rowActions(["view", "print"], h[0]) },
           ],
@@ -677,8 +675,7 @@
         { label: "Supplier", render: (f) => esc(supShort(f.sup.nama)) },
         { label: "Tgl faktur", render: (f) => `<span class="nowrap">${tgl(dIso(f.tgl))}</span><div class="t-sub">umur ${f.umur} hari</div>` },
         { label: "Jatuh tempo", render: (f) => `<span class="nowrap">${tgl(dIso(f.jt))}</span><div class="t-sub">${jtBadge(f.jt)}</div>` },
-        { label: "Nilai faktur", cls: "num nowrap", render: (f) => rp(f.nilai) },
-        { label: "Dibayar", cls: "num nowrap", render: (f) => (f.dibayar ? rp(f.dibayar) : '<span class="muted">—</span>') },
+        { label: "Nilai faktur", cls: "num nowrap", render: (f) => `${rp(f.nilai)}${f.dibayar ? `<div class="t-sub">dibayar ${rp(f.dibayar)}</div>` : ""}` },
         { label: "Sisa", cls: "num nowrap", render: (f) => `<b>${rp(f.sisa)}</b>` },
         { label: "Status", render: (f) => (f.jt < 0 ? status("Terlambat") : f.dibayar ? badge("Dibayar sebagian", "cyan", { dot: true }) : f.jt <= 7 ? status("Jatuh Tempo") : badge("Belum jatuh tempo", "gray", { dot: true })) },
         { label: "", cls: "actions", render: (f) => `<div class="btn-group" style="flex-wrap:nowrap">${btn("Bayar", "success", { icon: "payments", size: "sm", attrs: `data-bayar="${f.no}"` })}${btn("", "dark", { icon: "history", size: "sm", title: "Riwayat", attrs: `data-toast="Riwayat pembayaran ${f.no}" data-tone="info"` })}</div>` },
@@ -698,7 +695,7 @@
         ${stat({ label: "Dibayar bulan ini", value: short(dibayar), icon: "task_alt", tone: "success", foot: `${BAYAR.length} pembayaran` })}
       </div>
 
-      <div class="grid g-3-2">
+      <div class="grid g-2-1">
         ${card({
           title: "Umur hutang per PBF", desc: "Dihitung dari tanggal faktur", icon: "hourglass_bottom", flush: true,
           body: table({

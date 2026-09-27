@@ -687,7 +687,7 @@
     .slice(0, 16)
     .map((r, i) => {
       const d = i % 5 === 2 ? -2 : i % 7 === 3 ? -1 : i % 9 === 4 ? 1 : 0;
-      return { ...r, sys: r.b.qty, fisik: i >= 12 ? null : r.b.qty + d, ket: d < 0 ? (khusus(r.o.golongan) ? "Telusuri resep & register" : "Kemasan rusak / hilang") : d > 0 ? "Retur pelanggan belum diinput" : "" };
+      return { ...r, sys: r.b.qty, fisik: i >= 12 ? null : r.b.qty + d, ket: i >= 12 ? "" : d < 0 ? (khusus(r.o.golongan) ? "Telusuri resep & register" : "Kemasan rusak / hilang") : d > 0 ? "Retur pelanggan belum diinput" : "" };
     });
   const opnCalc = () => {
     const c = OPN.filter((r) => r.fisik !== null);
@@ -765,7 +765,7 @@
       </div>
 
       ${card({
-        title: "Lembar hitung", desc: "Rak B2, C1, K1 · isi kolom stok fisik, selisih dihitung otomatis", icon: "edit_note", flush: true,
+        title: "Lembar hitung", desc: "Rak B2 (selesai) & C1 (berjalan) · isi kolom stok fisik, selisih dihitung otomatis", icon: "edit_note", flush: true,
         tools: `<div class="input-icon" style="width:220px">${icon("barcode_scanner")}<input class="input sm" placeholder="Pindai barcode / batch" aria-label="Pindai barcode"></div>${btn("", "info", { icon: "visibility_off", size: "sm", title: "Tampilkan stok sistem", attrs: 'data-toast="Mode hitung buta dimatikan untuk pengawas" data-tone="info"' })}`,
         body: table({
           columns: [
@@ -856,6 +856,7 @@
     { no: "MUT/2609/008", tgl: dIso(-8), dari: "PST", ke: "BKS", item: 10, nilai: 7340000, status: "Diterima", pengirim: "Yulia A." },
     { no: "MUT/2609/007", tgl: dIso(-11), dari: "TGR", ke: "BGR", item: 5, nilai: 2615000, status: "Diterima", pengirim: "Intan P." },
   ].sort((a, b) => b.no.localeCompare(a.no));
+  const stepDate = (isoTgl, k) => { const d = new Date(isoTgl); const ago = Math.round((DB.TODAY - d) / 864e5); d.setDate(d.getDate() + Math.min(Math.ceil(k / 2), ago)); return d; };
   const stepIdx = (s) => MUT_STEPS.findIndex(([l]) => l === s);
   const MUT_POOL = DB.obat.filter((o) => !khusus(o.golongan));
   const mutItems = (m) => {
@@ -915,7 +916,7 @@
     const items = mutItems(m);
     const i = stepIdx(m.status);
     const log = [
-      ["Permintaan dibuat", `${m.pengirim} · ${cabShort(m.ke)}`, 0],
+      ["Permintaan dibuat", `${m.pengirim} · ${cabShort(m.dari)}`, 0],
       ["Disetujui Apoteker PJ", DB.cabang.find((c) => c.id === m.dari).apoteker, 1],
       ["Barang disiapkan & dikirim", `Surat jalan SJ-${m.no.slice(4)} · ${m.pengirim}`, 2],
       ["Dalam perjalanan", "Kurir internal · B 9123 KXT", 3],
@@ -952,7 +953,7 @@
             <div class="dashed"></div>
             <div class="grid g-3 center" style="gap:8px"><div>Pengirim<br><br><b>${esc(m.pengirim)}</b></div><div>Kurir<br><br><b>Andri S.</b></div><div>Penerima<br><br><b>( ............ )</b></div></div>
           </div>
-          <div class="timeline" style="padding:0">${log.map(([t, d, k]) => `<div class="tl ${k === 4 ? "green" : ""}"><span class="d"></span><div><div class="t">${t}</div><div class="m">${esc(d)} · ${tgl(DB.addDays(-Math.max(0, 3 - k)))}</div></div></div>`).join("")}</div>
+          <div class="timeline" style="padding:0">${log.map(([t, d, k]) => `<div class="tl ${k === 4 ? "green" : ""}"><span class="d"></span><div><div class="t">${t}</div><div class="m">${esc(d)} · ${tgl(stepDate(m.tgl, k))}</div></div></div>`).join("")}</div>
         </div>`,
       foot: `${btn("Tutup", "dark", { attrs: "data-close" })}
         ${btn("Cetak Surat Jalan", "teal", { icon: "print", attrs: `data-toast="Surat jalan SJ-${m.no.slice(4)} dikirim ke printer"` })}

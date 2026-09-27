@@ -145,7 +145,10 @@
     shellEl.className = shellEl.className.replace(/\broute-\S+/g, "").trim() + " route-" + route;
     const meta = ALL.find((i) => i.id === route) || ALL[0];
     const page = window.PAGES[route];
-    const el = document.getElementById("page");
+    // Ganti kontainer halaman dengan elemen baru agar listener halaman sebelumnya tidak menumpuk
+    const prev = document.getElementById("page");
+    const el = prev.cloneNode(false);
+    prev.replaceWith(el);
     UI.resetCharts();
     el.innerHTML = page ? page.render({ meta, state }) : comingSoon(meta);
     page?.mount?.(el, { meta, state });
