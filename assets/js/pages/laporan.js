@@ -1450,7 +1450,7 @@
         title: "Daftar surat pesanan", desc: `${esc(scopeName(state))} · bulan ini`, icon: "list", flush: true,
         body: table({
           columns: [
-            { label: "No. SP", render: (p) => `<span class="mono strong">${p.no}</span><div class="t-sub">${tgl(p.tgl)}</div>` },
+            { label: "No. SP", render: (p) => `<span class="mono strong nowrap">${p.no}</span><div class="t-sub">${tgl(p.tgl)}</div>` },
             { label: "Cabang", render: (p) => esc(cabShort(p.cabang)) },
             { label: "Supplier", render: (p) => esc(p.supplier) },
             { label: "Jenis", render: (p) => badge(p.jenis, jenisTone[p.jenis]) },
@@ -1569,15 +1569,15 @@
           title: "Item kedaluwarsa, diretur & dimusnahkan", desc: "Termasuk batch yang sedang dikarantina · nilai dalam rupiah", icon: "delete_sweep", flush: true,
           body: table({
             columns: [
-              { label: "Tanggal", render: (x) => tgl(x.tgl) },
-              { label: "No. dokumen", render: (x) => `<span class="mono">${x.no}</span>` },
-              { label: "Obat", render: (x) => `<div class="t-main">${esc(x.o.nama)}</div><div class="t-sub">${UI.golongan(x.o.golongan)}</div>` },
-              { label: "Batch / ED", render: (x) => `<span class="mono">${x.batch}</span><div class="t-sub">ED ${tgl(x.ed)}</div>` },
+              { label: "Tanggal", render: (x) => `<span class="nowrap">${tgl(x.tgl)}</span>` },
+              { label: "No. dokumen", render: (x) => `<span class="mono nowrap">${x.no}</span>` },
+              { label: "Obat", render: (x) => `<div class="t-main nowrap">${esc(x.o.nama)}</div><div class="t-sub">${UI.golongan(x.o.golongan)}</div>` },
+              { label: "Batch / ED", render: (x) => `<span class="mono">${x.batch}</span><div class="t-sub nowrap">ED ${tgl(x.ed)}</div>` },
               { label: "Cabang", render: (x) => esc(cabShort(x.cabang)) },
               { label: "Qty", cls: "num", render: (x) => `${num(x.qty)} <span class="t-sub">${esc(x.o.satuan)}</span>` },
               { label: "Nilai", cls: "num", render: (x) => num(x.nilai) },
               { label: "Tindakan", render: (x) => badge(x.tindakan, { "Retur PBF": "blue", Pemusnahan: "red", Karantina: "amber" }[x.tindakan]) },
-              { label: "PBF", render: (x) => `<span class="small">${esc(x.pbf)}</span>` },
+              { label: "PBF", render: (x) => `<span class="small">${esc(x.pbf.replace(/^PT\s+/, ""))}</span>` },
               { label: "Status", render: (x) => status(x.status) },
               { label: "Nilai kembali", cls: "num", render: (x) => (x.kembali ? num(x.kembali) : dash) },
               { label: "", cls: "actions", render: (x) => `<div style="min-width:72px">${UI.rowActions(["view", "print"], x.no === "—" ? x.batch : x.no)}</div>` },
