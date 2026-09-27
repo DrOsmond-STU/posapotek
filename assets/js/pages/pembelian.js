@@ -128,16 +128,16 @@
       </div>
       <div class="center"><div style="font-weight:800;font-size:15px;text-decoration:underline">${j.judul}</div><div class="small">Nomor: <b class="mono">${sp.no}</b></div></div>
       <div>Yang bertanda tangan di bawah ini:</div>
-      <dl class="kv" style="grid-template-columns:150px 1fr;max-width:560px"><dt>Nama</dt><dd style="text-align:left">${esc(DB.apotek.apotekerPJ)}</dd><dt>Jabatan</dt><dd style="text-align:left">Apoteker Penanggung Jawab</dd><dt>Nomor SIPA</dt><dd style="text-align:left">${esc(DB.apotek.sipa.replace("SIPA ", ""))}</dd></dl>
+      <dl class="kv" style="margin:0;grid-template-columns:150px 1fr;max-width:560px"><dt>Nama</dt><dd style="text-align:left">${esc(DB.apotek.apotekerPJ)}</dd><dt>Jabatan</dt><dd style="text-align:left">Apoteker Penanggung Jawab</dd><dt>Nomor SIPA</dt><dd style="text-align:left">${esc(DB.apotek.sipa.replace("SIPA ", ""))}</dd></dl>
       <div>Mengajukan pesanan ${esc(j.obj)} kepada:</div>
-      <dl class="kv" style="grid-template-columns:150px 1fr;max-width:560px"><dt>Nama PBF</dt><dd style="text-align:left">${esc(s.nama)}</dd><dt>Alamat</dt><dd style="text-align:left">${esc(m.alamat)}</dd><dt>Telp.</dt><dd style="text-align:left">${esc(s.hp)}</dd><dt>Izin PBF</dt><dd style="text-align:left">${esc(s.izin)}</dd></dl>
+      <dl class="kv" style="margin:0;grid-template-columns:150px 1fr;max-width:560px"><dt>Nama PBF</dt><dd style="text-align:left">${esc(s.nama)}</dd><dt>Alamat</dt><dd style="text-align:left">${esc(m.alamat)}</dd><dt>Telp.</dt><dd style="text-align:left">${esc(s.hp)}</dd><dt>Izin PBF</dt><dd style="text-align:left">${esc(s.izin)}</dd></dl>
       <div>Dengan ${esc(j.obj)} yang dipesan adalah:</div>
       <div class="table-wrap"><table class="tbl compact">
         <thead><tr><th>No</th><th>Nama ${khusus ? esc(j.obj) : "obat"}</th><th>Zat aktif</th><th>Bentuk & kekuatan</th><th>Satuan</th><th class="num">Jumlah</th><th>Terbilang</th></tr></thead>
-        <tbody>${items.map((r, k) => `<tr><td>${k + 1}</td><td class="strong">${esc(r.o.nama)}</td><td>${esc(r.o.generik)}</td><td>${esc(r.o.bentuk)}</td><td>${esc(r.sat)}${r.sat !== r.o.satuan ? ` @${satBeli(r.o)[1]} ${esc(r.o.satuan)}` : ""}</td><td class="num strong">${num(r.qty)}</td><td class="small">${terbilang(r.qty)}</td></tr>`).join("")}</tbody>
+        <tbody>${items.map((r, k) => `<tr><td>${k + 1}</td><td class="strong">${esc(r.o.nama)}</td><td>${esc(r.o.generik)}</td><td>${esc(r.o.bentuk)}</td><td>${esc(r.sat)}${r.sat !== r.o.satuan ? ` @${satBeli(r.o)[1]} ${esc(r.o.satuan)}` : ""}</td><td class="num nowrap strong">${num(r.qty)}</td><td class="small">${terbilang(r.qty)}</td></tr>`).join("")}</tbody>
       </table></div>
       <div>${esc(j.obj.charAt(0).toUpperCase() + j.obj.slice(1))} tersebut akan dipergunakan untuk memenuhi kebutuhan:</div>
-      <dl class="kv" style="grid-template-columns:150px 1fr;max-width:560px"><dt>Nama apotek</dt><dd style="text-align:left">${esc(DB.apotek.nama)} — ${esc(cabangNama("PST"))}</dd><dt>Alamat</dt><dd style="text-align:left">${esc(DB.apotek.alamat)}</dd><dt>Surat Izin Apotek</dt><dd style="text-align:left">${esc(DB.apotek.sia.replace("SIA ", ""))}</dd></dl>
+      <dl class="kv" style="margin:0;grid-template-columns:150px 1fr;max-width:560px"><dt>Nama apotek</dt><dd style="text-align:left">${esc(DB.apotek.nama)} — ${esc(cabangNama("PST"))}</dd><dt>Alamat</dt><dd style="text-align:left">${esc(DB.apotek.alamat)}</dd><dt>Surat Izin Apotek</dt><dd style="text-align:left">${esc(DB.apotek.sia.replace("SIA ", ""))}</dd></dl>
       <div class="row between" style="align-items:flex-end;margin-top:8px">
         <div class="small muted" style="max-width:320px">${khusus ? `Rangkap: 1) PBF 2) Arsip apotek 3) Dinkes 4) Balai POM. Disimpan minimal 5 tahun.` : "Harga & diskon mengikuti kesepakatan kontrak tahunan dengan PBF."}</div>
         <div class="center" style="min-width:240px">
@@ -180,10 +180,10 @@
       return `<tr>
         <td><select class="select sm sp-obat" aria-label="Obat" style="min-width:210px">${all.map((x) => `<option value="${x.kode}" ${x === o ? "selected" : ""}>${esc(x.nama)}</option>`).join("")}</select><div class="t-sub">${golongan(o.golongan)}</div></td>
         <td>${esc(sat)}</td>
-        <td class="num"><input class="input sm sp-q" type="number" min="1" value="${qty}" style="width:76px;text-align:right" aria-label="Qty"></td>
-        <td class="num"><input class="input sm sp-h" type="number" min="0" value="${hnaBeli(o)}" style="width:120px;text-align:right" aria-label="Harga"></td>
-        <td class="num"><input class="input sm sp-d" type="number" min="0" max="100" step="0.5" value="5" style="width:70px;text-align:right" aria-label="Diskon"></td>
-        <td class="num strong sp-sub"></td>
+        <td class="num nowrap"><input class="input sm sp-q" type="number" min="1" value="${qty}" style="width:76px;text-align:right" aria-label="Qty"></td>
+        <td class="num nowrap"><input class="input sm sp-h" type="number" min="0" value="${hnaBeli(o)}" style="width:120px;text-align:right" aria-label="Harga"></td>
+        <td class="num nowrap"><input class="input sm sp-d" type="number" min="0" max="100" step="0.5" value="5" style="width:70px;text-align:right" aria-label="Diskon"></td>
+        <td class="num nowrap strong sp-sub"></td>
         <td class="actions">${btn("", "danger", { icon: "delete", size: "sm", title: "Hapus baris", attrs: "data-sprow-del" })}</td></tr>`;
     };
     const DEF = { Reguler: [["OB0017", 10], ["OB0023", 6], ["OB0001", 20], ["OB0013", 8]], Narkotika: [["OB0038", 5]], Psikotropika: [["OB0036", 3], ["OB0037", 5]], Prekursor: [["OB0011", 5]], OOT: [["OB0010", 5]] };
@@ -214,7 +214,7 @@
             ${input("No. SIPA", { value: DB.apotek.sipa, id: "sp-sipa", attrs: "readonly" })}
             ${textarea("Catatan untuk PBF", { cls: "full", value: "Mohon kirim ED minimal 2 tahun. Faktur & e-Faktur pajak dilampirkan bersama barang." })}
           </div>
-          <div class="card" style="box-shadow:none"><div class="card-body"><dl class="kv">
+          <div class="card" style="box-shadow:none"><div class="card-body"><dl class="kv" style="margin:0">
             <dt>Subtotal (HNA)</dt><dd id="sp-t-sub"></dd>
             <dt>Diskon PBF</dt><dd id="sp-t-disc"></dd>
             <dt>DPP</dt><dd id="sp-t-dpp"></dd>
@@ -286,11 +286,11 @@
         { label: "No. SP", render: (s) => `<span class="mono strong">${s.no}</span><div class="t-sub">${tgl(s.tgl)}</div>` },
         { label: "Supplier / PBF", render: (s) => `<div class="t-main">${esc(supShort(s.supplier))}</div><div class="t-sub">${esc(supBy(s.supplier).izin)} · TOP ${supBy(s.supplier).top} hari</div>` },
         { label: "Jenis", render: (s) => jenisBadge(s.jenis) },
-        { label: "Item", cls: "num", render: (s) => num(s.item) },
-        { label: "Total", cls: "num", render: (s) => `<b>${rp(s.total)}</b>` },
+        { label: "Item", cls: "num nowrap", render: (s) => num(s.item) },
+        { label: "Total", cls: "num nowrap", render: (s) => `<b>${rp(s.total)}</b>` },
         { label: "Apoteker PJ", render: (s) => `<span class="small">${esc(apjShort)}</span><div class="t-sub">${spTtd(s) ? badge("Sudah TTD", "green", { icon: "draw" }) : badge("Belum TTD", "amber", { icon: "draw" })}</div>` },
         { label: "Status", render: (s) => status(s.status) },
-        { label: "", cls: "actions", render: (s) => `<div class="btn-group">
+        { label: "", cls: "actions", render: (s) => `<div class="btn-group" style="flex-wrap:nowrap">
           ${btn("", "info", { icon: "visibility", size: "sm", title: "Pratinjau SP", attrs: `data-sp="${s.no}"` })}
           ${spTtd(s) ? "" : btn("", "purple", { icon: "draw", size: "sm", title: "TTD Digital Apoteker", attrs: `data-sp="${s.no}"` })}
           ${s.status === "Draft" && s.jenis === "Reguler" ? btn("", "primary", { icon: "send", size: "sm", title: "Kirim ke PBF", attrs: `data-toast="${s.no} dikirim ke ${esc(supShort(s.supplier))}"` }) : ""}
@@ -408,13 +408,13 @@
             columns: [
               { label: "", render: (r, k) => `<input type="checkbox" class="pn-ok" data-k="${k}" ${r.terima === r.qty && daysTo(r.ed) / 30.4 >= 12 ? "checked" : ""} aria-label="Sesuai">` },
               { label: "Obat", render: (r) => `<div class="t-main">${esc(r.o.nama)}</div><div class="t-sub">${golongan(r.o.golongan)} · ${esc(r.sat)}</div>` },
-              { label: "Qty SP", cls: "num", render: (r) => num(r.qty) },
-              { label: "Qty diterima", cls: "num", render: (r, k) => `<input class="input sm pn-q" type="number" min="0" data-k="${k}" value="${r.terima}" style="width:76px;text-align:right" aria-label="Qty diterima">` },
+              { label: "Qty SP", cls: "num nowrap", render: (r) => num(r.qty) },
+              { label: "Qty diterima", cls: "num nowrap", render: (r, k) => `<input class="input sm pn-q" type="number" min="0" data-k="${k}" value="${r.terima}" style="width:76px;text-align:right" aria-label="Qty diterima">` },
               { label: "Batch", render: (r) => `<input class="input sm mono" value="${r.batch}" style="width:110px" aria-label="Batch">` },
               { label: "ED", render: (r, k) => `<input class="input sm pn-ed" type="date" data-k="${k}" value="${r.ed}" aria-label="Tanggal kedaluwarsa">` },
-              { label: "Harga", cls: "num", render: (r) => rp(r.harga) },
-              { label: "Disc", cls: "num", render: (r) => `${r.disc}%` },
-              { label: "Subtotal", cls: "num", render: (r) => `<b class="pn-sub">${rp(r.terima * r.harga * (1 - r.disc / 100))}</b>` },
+              { label: "Harga", cls: "num nowrap", render: (r) => rp(r.harga) },
+              { label: "Disc", cls: "num nowrap", render: (r) => `${r.disc}%` },
+              { label: "Subtotal", cls: "num nowrap", render: (r) => `<b class="pn-sub">${rp(r.terima * r.harga * (1 - r.disc / 100))}</b>` },
               { label: "Kesesuaian", render: (r) => `<div class="stack" style="gap:4px"><span class="pn-qi">${qtyInfo(r.qty, r.terima)}</span><span class="pn-ei">${edInfo(r.ed)[1]}</span></div>` },
             ],
             rows, rowCls: (r) => edInfo(r.ed)[0],
@@ -424,7 +424,7 @@
               ${textarea("Catatan penerimaan", { value: rows.some((r) => r.terima < r.qty) ? "Sebagian item kurang kirim — PBF menjanjikan susulan dalam 3 hari kerja." : "" })}
               ${input("Lampiran faktur (foto / PDF)", { type: "file" })}
             </div>
-            <div class="card" style="box-shadow:none"><div class="card-body"><dl class="kv">
+            <div class="card" style="box-shadow:none"><div class="card-body"><dl class="kv" style="margin:0">
               <dt>Subtotal</dt><dd id="pn-t-sub"></dd><dt>Diskon PBF</dt><dd id="pn-t-disc"></dd><dt>DPP</dt><dd id="pn-t-dpp"></dd><dt>PPN 11%</dt><dd id="pn-t-ppn"></dd>
               <dt style="font-weight:800;color:var(--text)">Total faktur</dt><dd id="pn-t-total" style="font-size:18px;font-weight:800;color:var(--c-primary)"></dd>
             </dl></div></div>
@@ -443,8 +443,8 @@
             { label: "No. SP", render: (h) => `<span class="mono small">${h[2]}</span>` },
             { label: "Supplier", render: (h) => esc(supShort(h[3])) },
             { label: "No. faktur", render: (h) => `<span class="mono small">${h[4]}</span>` },
-            { label: "Item", cls: "num", render: (h) => h[5] },
-            { label: "Total", cls: "num", render: (h) => `<b>${rp(h[6])}</b>` },
+            { label: "Item", cls: "num nowrap", render: (h) => h[5] },
+            { label: "Total", cls: "num nowrap", render: (h) => `<b>${rp(h[6])}</b>` },
             { label: "Jatuh tempo", render: (h) => `${tgl(dIso(h[7] + h[1]))}<div class="t-sub">${jtBadge(h[7] + h[1])}</div>` },
             { label: "Penerima", render: (h) => esc(h[8]) },
             { label: "Status", render: (h) => status(h[9]) },
@@ -531,8 +531,8 @@
       body: `
         ${r.status === "Ditolak" ? alert("danger", "block", "Retur ditolak PBF", "Batch sudah melewati batas waktu retur (maks. H-90 sebelum ED sesuai kontrak). Pertimbangkan diskon cepat atau pemusnahan.") : `<div class="steps">${RB_STEPS.map(([l, ic], k) => `<div class="step ${k < idx ? "done" : k === idx ? "now" : ""}"><div class="b">${icon(k < idx ? "check" : ic)}</div>${l}</div>`).join("")}</div>`}
         <div class="grid g-2">
-          <dl class="kv"><dt>Supplier</dt><dd>${esc(r.sup.nama)}</dd><dt>Faktur asal</dt><dd class="mono">${r.faktur}</dd><dt>Tanggal</dt><dd>${tgl(dIso(r.tgl))}</dd></dl>
-          <dl class="kv"><dt>Alasan</dt><dd>${alasanBadge(r.alasan)}</dd><dt>Penyelesaian</dt><dd>${esc(r.solusi)}</dd><dt>Status</dt><dd>${rbBadge(r.status)}</dd></dl>
+          <dl class="kv" style="margin:0"><dt>Supplier</dt><dd>${esc(r.sup.nama)}</dd><dt>Faktur asal</dt><dd class="mono">${r.faktur}</dd><dt>Tanggal</dt><dd>${tgl(dIso(r.tgl))}</dd></dl>
+          <dl class="kv" style="margin:0"><dt>Alasan</dt><dd>${alasanBadge(r.alasan)}</dd><dt>Penyelesaian</dt><dd>${esc(r.solusi)}</dd><dt>Status</dt><dd>${rbBadge(r.status)}</dd></dl>
         </div>
         ${table({
           cls: "compact",
@@ -541,10 +541,10 @@
             { label: "Obat", render: (b) => `<div class="t-main">${esc(b.nama)}</div><div class="t-sub">${golongan(b.golongan)}</div>` },
             { label: "Batch", render: (b) => `<span class="mono">${b.batch}</span>` },
             { label: "ED", render: (b) => tgl(b.ed) },
-            { label: "Qty", cls: "num", render: (b) => `${num(Math.min(b.qty, 12))} ${esc(b.satuan)}` },
+            { label: "Qty", cls: "num nowrap", render: (b) => `${num(Math.min(b.qty, 12))} ${esc(b.satuan)}` },
           ],
           rows: items,
-          foot: `<tr><td colspan="4">Nilai retur (HNA + PPN)</td><td class="num">${rp(r.nilai)}</td></tr>`,
+          foot: `<tr><td colspan="4">Nilai retur (HNA + PPN)</td><td class="num nowrap">${rp(r.nilai)}</td></tr>`,
         })}
         <div class="grid g-3 center small" style="gap:8px;margin-top:6px"><div>Dibuat oleh<br><br><br><b>Yulia Anggraini</b><div class="muted">Admin Gudang</div></div><div>Disetujui<br><br><br><b>${esc(apjShort)}</b><div class="muted">Apoteker PJ</div></div><div>Diterima PBF<br><br><br><b>${esc(r.sup.cp)}</b><div class="muted">${esc(supShort(r.sup.nama))}</div></div></div>`,
       foot: `${btn("Tutup", "dark", { attrs: "data-close" })}${btn("Cetak Nota Retur", "teal", { icon: "print", attrs: `data-toast="Nota retur ${r.no} dikirim ke printer"` })}${r.status === "Diajukan" ? btn("Ubah", "warning", { icon: "edit", attrs: 'data-close data-toast="Nota retur dibuka untuk diubah" data-tone="info"' }) : ""}`,
@@ -596,11 +596,11 @@
               { label: "No. nota", render: (r) => `<span class="mono strong">${r.no}</span><div class="t-sub">${tgl(dIso(r.tgl))}</div>` },
               { label: "Supplier", render: (r) => `${esc(supShort(r.sup.nama))}<div class="t-sub mono">${r.faktur}</div>` },
               { label: "Alasan", render: (r) => alasanBadge(r.alasan) },
-              { label: "Item", cls: "num", render: (r) => r.item },
-              { label: "Nilai", cls: "num", render: (r) => `<b>${rp(r.nilai)}</b>` },
+              { label: "Item", cls: "num nowrap", render: (r) => r.item },
+              { label: "Nilai", cls: "num nowrap", render: (r) => `<b>${rp(r.nilai)}</b>` },
               { label: "Penyelesaian", render: (r) => `<span class="small">${esc(r.solusi)}</span>` },
               { label: "Status", render: (r) => rbBadge(r.status) },
-              { label: "", cls: "actions", render: (r) => `<div class="btn-group">${btn("", "info", { icon: "visibility", size: "sm", title: "Lihat nota retur", attrs: `data-rb="${r.no}"` })}${btn("", "teal", { icon: "print", size: "sm", title: "Cetak", attrs: `data-toast="Nota retur ${r.no} dikirim ke printer"` })}</div>` },
+              { label: "", cls: "actions", render: (r) => `<div class="btn-group" style="flex-wrap:nowrap">${btn("", "info", { icon: "visibility", size: "sm", title: "Lihat nota retur", attrs: `data-rb="${r.no}"` })}${btn("", "teal", { icon: "print", size: "sm", title: "Cetak", attrs: `data-toast="Nota retur ${r.no} dikirim ke printer"` })}</div>` },
             ],
             rows: RETUR,
           }),
@@ -639,8 +639,8 @@
       title: `Bayar Faktur ${f.no}`, icon: "payments", size: "lg",
       body: `
         <div class="grid g-2">
-          <dl class="kv"><dt>Supplier</dt><dd>${esc(f.sup.nama)}</dd><dt>No. faktur</dt><dd class="mono">${f.no}</dd><dt>Tgl faktur</dt><dd>${tgl(dIso(f.tgl))}</dd><dt>Jatuh tempo</dt><dd>${tgl(dIso(f.jt))} ${jtBadge(f.jt)}</dd></dl>
-          <dl class="kv"><dt>Nilai faktur</dt><dd>${rp(f.nilai)}</dd><dt>Sudah dibayar</dt><dd>${rp(f.dibayar)}</dd><dt>Sisa hutang</dt><dd style="color:var(--t-red-fg)">${rp(f.sisa)}</dd><dt>Rekening PBF</dt><dd>${esc(PBF_META[f.sup.id].bank)}</dd></dl>
+          <dl class="kv" style="margin:0"><dt>Supplier</dt><dd>${esc(f.sup.nama)}</dd><dt>No. faktur</dt><dd class="mono">${f.no}</dd><dt>Tgl faktur</dt><dd>${tgl(dIso(f.tgl))}</dd><dt>Jatuh tempo</dt><dd>${tgl(dIso(f.jt))} ${jtBadge(f.jt)}</dd></dl>
+          <dl class="kv" style="margin:0"><dt>Nilai faktur</dt><dd>${rp(f.nilai)}</dd><dt>Sudah dibayar</dt><dd>${rp(f.dibayar)}</dd><dt>Sisa hutang</dt><dd style="color:var(--t-red-fg)">${rp(f.sisa)}</dd><dt>Rekening PBF</dt><dd>${esc(PBF_META[f.sup.id].bank)}</dd></dl>
         </div>
         <div class="form-grid cols-3">
           ${input("Tanggal bayar", { type: "date", value: dIso(0) })}
@@ -677,11 +677,11 @@
         { label: "Supplier", render: (f) => esc(supShort(f.sup.nama)) },
         { label: "Tgl faktur", render: (f) => `<span class="nowrap">${tgl(dIso(f.tgl))}</span><div class="t-sub">umur ${f.umur} hari</div>` },
         { label: "Jatuh tempo", render: (f) => `<span class="nowrap">${tgl(dIso(f.jt))}</span><div class="t-sub">${jtBadge(f.jt)}</div>` },
-        { label: "Nilai faktur", cls: "num", render: (f) => rp(f.nilai) },
-        { label: "Dibayar", cls: "num", render: (f) => (f.dibayar ? rp(f.dibayar) : '<span class="muted">—</span>') },
-        { label: "Sisa", cls: "num", render: (f) => `<b>${rp(f.sisa)}</b>` },
+        { label: "Nilai faktur", cls: "num nowrap", render: (f) => rp(f.nilai) },
+        { label: "Dibayar", cls: "num nowrap", render: (f) => (f.dibayar ? rp(f.dibayar) : '<span class="muted">—</span>') },
+        { label: "Sisa", cls: "num nowrap", render: (f) => `<b>${rp(f.sisa)}</b>` },
         { label: "Status", render: (f) => (f.jt < 0 ? status("Terlambat") : f.dibayar ? badge("Dibayar sebagian", "cyan", { dot: true }) : f.jt <= 7 ? status("Jatuh Tempo") : badge("Belum jatuh tempo", "gray", { dot: true })) },
-        { label: "", cls: "actions", render: (f) => `<div class="btn-group">${btn("Bayar", "success", { icon: "payments", size: "sm", attrs: `data-bayar="${f.no}"` })}${btn("", "dark", { icon: "history", size: "sm", title: "Riwayat", attrs: `data-toast="Riwayat pembayaran ${f.no}" data-tone="info"` })}</div>` },
+        { label: "", cls: "actions", render: (f) => `<div class="btn-group" style="flex-wrap:nowrap">${btn("Bayar", "success", { icon: "payments", size: "sm", attrs: `data-bayar="${f.no}"` })}${btn("", "dark", { icon: "history", size: "sm", title: "Riwayat", attrs: `data-toast="Riwayat pembayaran ${f.no}" data-tone="info"` })}</div>` },
       ];
       return `
       ${UI.pageHeader({
@@ -704,11 +704,11 @@
           body: table({
             columns: [
               { label: "PBF", render: (r) => `<div class="t-main">${esc(supShort(r.s.nama))}</div><div class="t-sub">TOP ${r.s.top} hari</div>` },
-              ...AGING.map((l, k) => ({ label: l, cls: "num", render: (r) => (r.a[k] ? `<span ${k >= 2 ? 'style="color:var(--t-red-fg);font-weight:700"' : ""}>${rp(r.a[k])}</span>` : '<span class="muted">—</span>') })),
-              { label: "Total", cls: "num", render: (r) => `<b>${rp(r.t)}</b>` },
+              ...AGING.map((l, k) => ({ label: l, cls: "num nowrap", render: (r) => (r.a[k] ? `<span ${k >= 2 ? 'style="color:var(--t-red-fg);font-weight:700"' : ""}>${rp(r.a[k])}</span>` : '<span class="muted">—</span>') })),
+              { label: "Total", cls: "num nowrap", render: (r) => `<b>${rp(r.t)}</b>` },
             ],
             rows: aging,
-            foot: `<tr><td>Total</td>${tot.map((v) => `<td class="num">${rp(v)}</td>`).join("")}<td class="num">${rp(total)}</td></tr>`,
+            foot: `<tr><td>Total</td>${tot.map((v) => `<td class="num nowrap">${rp(v)}</td>`).join("")}<td class="num nowrap">${rp(total)}</td></tr>`,
           }),
         })}
         ${card({
@@ -737,12 +737,12 @@
             { label: "Supplier", render: (b) => esc(supShort(b[2].nama)) },
             { label: "Faktur", render: (b) => `<span class="mono small">${b[3]}</span>` },
             { label: "Metode", render: (b) => esc(b[4]) },
-            { label: "Nominal", cls: "num", render: (b) => `<b>${rp(b[5])}</b>` },
+            { label: "Nominal", cls: "num nowrap", render: (b) => `<b>${rp(b[5])}</b>` },
             { label: "Bukti", render: () => badge("Terlampir", "green", { icon: "attach_file" }) },
             { label: "", cls: "actions", render: (b) => UI.rowActions(["view", "print"], b[0]) },
           ],
           rows: BAYAR,
-          foot: `<tr><td colspan="5">Total dibayar</td><td class="num">${rp(dibayar)}</td><td colspan="2"></td></tr>`,
+          foot: `<tr><td colspan="5">Total dibayar</td><td class="num nowrap">${rp(dibayar)}</td><td colspan="2"></td></tr>`,
         }),
       })}`;
     },
@@ -792,8 +792,8 @@
       body: `
         <div class="row">${badge(s.izin, "blue", { icon: "verified" })}${daysTo(m.berlaku) < 90 ? badge(`Izin habis ${daysTo(m.berlaku)} hari lagi`, "amber", { icon: "warning" }) : badge("Izin berlaku", "green", { icon: "check" })}${m.khusus.map((k) => badge(k, k === "Narkotika" ? "red" : k === "Psikotropika" ? "purple" : "gray")).join("")}</div>
         <div class="grid g-2">
-          ${card({ title: "Legalitas & kontak", icon: "badge", body: `<dl class="kv"><dt>NPWP</dt><dd class="mono">${m.npwp}</dd><dt>Apoteker PJ</dt><dd>${esc(m.apj)}</dd><dt>SIPA APJ</dt><dd>${esc(m.sipa)}</dd><dt>Alamat</dt><dd>${esc(m.alamat)}</dd><dt>Kontak</dt><dd>${esc(s.cp)} · ${esc(s.hp)}</dd></dl>` })}
-          ${card({ title: "Keuangan & kinerja", icon: "insights", tone: "green", body: `<dl class="kv"><dt>TOP</dt><dd>${s.top} hari</dd><dt>Limit kredit</dt><dd>${rp(m.limit)}</dd><dt>Hutang berjalan</dt><dd>${rp(s.hutang)}</dd><dt>Ketepatan kirim</dt><dd>${pct(m.ontime)}</dd><dt>Fill rate</dt><dd>${pct(m.fill)}</dd><dt>Lead time rata-rata</dt><dd>${m.lead.toLocaleString("id-ID")} hari</dd></dl>
+          ${card({ title: "Legalitas & kontak", icon: "badge", body: `<dl class="kv" style="margin:0"><dt>NPWP</dt><dd class="mono">${m.npwp}</dd><dt>Apoteker PJ</dt><dd>${esc(m.apj)}</dd><dt>SIPA APJ</dt><dd>${esc(m.sipa)}</dd><dt>Alamat</dt><dd>${esc(m.alamat)}</dd><dt>Kontak</dt><dd>${esc(s.cp)} · ${esc(s.hp)}</dd></dl>` })}
+          ${card({ title: "Keuangan & kinerja", icon: "insights", tone: "green", body: `<dl class="kv" style="margin:0"><dt>TOP</dt><dd>${s.top} hari</dd><dt>Limit kredit</dt><dd>${rp(m.limit)}</dd><dt>Hutang berjalan</dt><dd>${rp(s.hutang)}</dd><dt>Ketepatan kirim</dt><dd>${pct(m.ontime)}</dd><dt>Fill rate</dt><dd>${pct(m.fill)}</dd><dt>Lead time rata-rata</dt><dd>${m.lead.toLocaleString("id-ID")} hari</dd></dl>
             <div class="stack" style="gap:6px;margin-top:12px"><div class="row between small"><span>Pemakaian limit</span><b>${pct((s.hutang / m.limit) * 100)}</b></div>${progress(s.hutang, m.limit, s.hutang / m.limit > 0.8 ? "red" : s.hutang / m.limit > 0.6 ? "amber" : "green")}</div>` })}
         </div>
         ${card({ title: "Riwayat pembelian", desc: `${sps.length} SP terakhir`, icon: "history", flush: true, body: table({
@@ -802,8 +802,8 @@
             { label: "No. SP", render: (x) => `<span class="mono strong">${x.no}</span>` },
             { label: "Tanggal", render: (x) => tgl(x.tgl) },
             { label: "Jenis", render: (x) => jenisBadge(x.jenis) },
-            { label: "Item", cls: "num", render: (x) => x.item },
-            { label: "Total", cls: "num", render: (x) => rp(x.total) },
+            { label: "Item", cls: "num nowrap", render: (x) => x.item },
+            { label: "Total", cls: "num nowrap", render: (x) => rp(x.total) },
             { label: "Status", render: (x) => status(x.status) },
           ],
           rows: sps, empty: "Belum ada SP bulan ini",
@@ -813,7 +813,7 @@
           columns: [
             { label: "No. faktur", render: (f) => `<span class="mono">${f.no}</span>` },
             { label: "Jatuh tempo", render: (f) => `${tgl(dIso(f.jt))} ${jtBadge(f.jt)}` },
-            { label: "Sisa", cls: "num", render: (f) => `<b>${rp(f.sisa)}</b>` },
+            { label: "Sisa", cls: "num nowrap", render: (f) => `<b>${rp(f.sisa)}</b>` },
           ],
           rows: fk,
         }) })}`,
@@ -853,7 +853,7 @@
             title: esc(supShort(s.nama)), desc: `${esc(s.kota)} · ${s.id}`, icon: "factory", tone: "blue",
             tools: daysTo(m.berlaku) < 90 ? badge("Izin segera habis", "amber", { dot: true }) : status("Aktif"),
             body: `<div class="stack">
-              <dl class="kv"><dt>Izin PBF</dt><dd>${esc(s.izin)}</dd><dt>TOP</dt><dd>${s.top} hari</dd><dt>Kontak</dt><dd>${esc(s.cp)}</dd><dt>Telepon</dt><dd class="mono">${esc(s.hp)}</dd><dt>Hutang</dt><dd style="color:var(--t-red-fg)">${rp(s.hutang)}</dd></dl>
+              <dl class="kv" style="margin:0"><dt>Izin PBF</dt><dd>${esc(s.izin)}</dd><dt>TOP</dt><dd>${s.top} hari</dd><dt>Kontak</dt><dd>${esc(s.cp)}</dd><dt>Telepon</dt><dd class="mono">${esc(s.hp)}</dd><dt>Hutang</dt><dd style="color:var(--t-red-fg)">${rp(s.hutang)}</dd></dl>
               <div class="stack" style="gap:6px"><div class="row between small"><span class="muted">Limit kredit ${short(m.limit)}</span><b>${pct(use * 100, 0)}</b></div>${progress(s.hutang, m.limit, use > 0.8 ? "red" : use > 0.6 ? "amber" : "green")}</div>
               <div class="row" style="gap:6px">${m.khusus.map((k) => badge(k, k === "Narkotika" ? "red" : k === "Psikotropika" ? "purple" : "gray")).join("")}</div>
             </div>`,
@@ -872,10 +872,10 @@
             { label: "PBF", render: (s) => `<div class="t-main">${esc(supShort(s.nama))}</div><div class="t-sub">${esc(s.izin)}</div>` },
             { label: "Ketepatan kirim", render: (s) => `<div class="stack" style="gap:4px;min-width:130px"><span class="small num">${pct(PBF_META[s.id].ontime)}</span>${progress(PBF_META[s.id].ontime, 100, PBF_META[s.id].ontime >= 95 ? "green" : "amber")}</div>` },
             { label: "Fill rate", render: (s) => `<div class="stack" style="gap:4px;min-width:130px"><span class="small num">${pct(PBF_META[s.id].fill)}</span>${progress(PBF_META[s.id].fill, 100, PBF_META[s.id].fill >= 95 ? "green" : "amber")}</div>` },
-            { label: "Lead time", cls: "num", render: (s) => `${PBF_META[s.id].lead.toLocaleString("id-ID")} hari` },
-            { label: "Retur", cls: "num", render: (s) => pct(PBF_META[s.id].retur) },
-            { label: "TOP", cls: "num", render: (s) => `${s.top} hari` },
-            { label: "Hutang", cls: "num", render: (s) => `<b>${rp(s.hutang)}</b>` },
+            { label: "Lead time", cls: "num nowrap", render: (s) => `${PBF_META[s.id].lead.toLocaleString("id-ID")} hari` },
+            { label: "Retur", cls: "num nowrap", render: (s) => pct(PBF_META[s.id].retur) },
+            { label: "TOP", cls: "num nowrap", render: (s) => `${s.top} hari` },
+            { label: "Hutang", cls: "num nowrap", render: (s) => `<b>${rp(s.hutang)}</b>` },
             { label: "Nilai", render: (s) => { const sc = PBF_META[s.id].ontime * 0.5 + PBF_META[s.id].fill * 0.5 - PBF_META[s.id].retur * 2; return sc >= 94 ? badge("A · Sangat baik", "green") : sc >= 90 ? badge("B · Baik", "blue") : badge("C · Perlu evaluasi", "amber"); } },
           ],
           rows: DB.supplier,

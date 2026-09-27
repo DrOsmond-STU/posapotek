@@ -73,6 +73,8 @@
   const panel = (g, id, html, visible = false) => `<div data-panel-group="${g}" data-panel="${id}" ${visible ? "" : "hidden"}><div class="stack">${html}</div></div>`;
   const tr = (cells) => `<tr>${cells.map((c) => (typeof c === "object" && c !== null ? `<td class="${c.cls || ""}" ${c.span ? `colspan="${c.span}"` : ""}>${c.v}</td>` : `<td class="num">${c}</td>`)).join("")}</tr>`;
   const dash = `<span class="muted">—</span>`;
+  // Kartu hero berlatar biru: delta negatif ditulis di teks kaki agar tetap terbaca
+  const heroDelta = (d) => (d >= 0 ? { delta: d, foot: "vs bulan lalu" } : { foot: `${pct(d)} vs bulan lalu` });
   const deltaBadge = (d, goodUp = true) => (Math.abs(d) < 0.05 ? badge("0,0%", "gray") : badge(`${d > 0 ? "+" : ""}${pct(d)}`, (d > 0) === goodUp ? "green" : "red", { icon: d > 0 ? "arrow_upward" : "arrow_downward" }));
   const abcBadge = (c) => badge(`Kelas ${c}`, { A: "purple", B: "blue", C: "gray" }[c]);
   const swatch = (i) => `<i style="width:10px;height:10px;border-radius:3px;background:${CAB_CSS[i]};display:inline-block;margin-right:8px"></i>`;
@@ -1036,7 +1038,7 @@
       ${fbar(select("Bandingkan dengan", ["Bulan lalu", "Bulan yang sama tahun lalu", "Anggaran (budget)"]))}
 
       <div class="grid g-4">
-        ${stat({ label: "Penjualan bersih", value: short(cur.bersih), icon: "payments", tone: "primary", delta: chg(cur.bersih, prev.bersih), foot: "vs bulan lalu", hero: true })}
+        ${stat({ label: "Penjualan bersih", value: short(cur.bersih), icon: "payments", tone: "primary", ...heroDelta(chg(cur.bersih, prev.bersih)), hero: true })}
         ${stat({ label: "Laba kotor", value: short(cur.lk), icon: "savings", tone: "teal", delta: chg(cur.lk, prev.lk), foot: `margin ${pct(div(cur.lk, cur.bersih) * 100)}` })}
         ${stat({ label: "Laba operasional", value: short(cur.lo), icon: "trending_up", tone: "info", delta: chg(cur.lo, prev.lo), foot: `margin ${pct(div(cur.lo, cur.bersih) * 100)}` })}
         ${stat({ label: "Laba bersih", value: short(cur.lb), icon: "account_balance", tone: "success", delta: chg(cur.lb, prev.lb), foot: `margin bersih ${pct(div(cur.lb, cur.bersih) * 100)}` })}
@@ -1352,7 +1354,7 @@
       ${fbar(`${select("Supplier / PBF", ["Semua PBF", ...DB.supplier.map((s) => s.nama)])}${select("Jenis SP", ["Semua jenis", ...JENIS_SP.map((j) => j[0])])}`)}
 
       <div class="grid g-3">
-        ${stat({ label: "Total pembelian", value: short(T.total), icon: "shopping_bag", tone: "primary", delta: chg(M.cur, M.bulan[LAST - 1]), foot: "vs bulan lalu", hero: true })}
+        ${stat({ label: "Total pembelian", value: short(T.total), icon: "shopping_bag", tone: "primary", ...heroDelta(chg(M.cur, M.bulan[LAST - 1])), hero: true })}
         ${stat({ label: "Surat pesanan (SP)", value: num(T.sp), icon: "shopping_cart_checkout", tone: "info", foot: `${num(T.faktur)} faktur diterima` })}
         ${stat({ label: "Diskon dari PBF", value: short(T.diskon), icon: "sell", tone: "pink", foot: `rata-rata ${pct(div(T.diskon, T.bruto) * 100)} dari harga bruto` })}
         ${stat({ label: "Fill rate", value: pct(wAvg("fill")), icon: "inventory", tone: "success", foot: "item diterima ÷ item dipesan" })}
@@ -1378,7 +1380,7 @@
           title: "Rincian per PBF", desc: "Nilai dalam rupiah · PPN 12% × DPP nilai lain 11/12 (efektif 11%)", icon: "table_rows", flush: true,
           body: table({
             columns: [
-              { label: "PBF", render: (s) => `<div class="t-main">${esc(s.nama)}</div><div class="t-sub">${esc(s.izin)} · ${esc(s.kota)}</div>` },
+              { label: "PBF", render: (s) => `<div class="t-main nowrap">${esc(s.nama.replace(/^PT\s+/, ""))}</div><div class="t-sub nowrap">${esc(s.izin)} · ${esc(s.kota)}</div>` },
               { label: "SP", cls: "num", render: (s) => num(s.sp) },
               { label: "Faktur", cls: "num", render: (s) => num(s.faktur) },
               { label: "Bruto", cls: "num", render: (s) => num(s.bruto) },
@@ -1388,8 +1390,8 @@
               { label: "Total", cls: "num", render: (s) => `<b>${num(s.total)}</b>` },
               { label: "Retur", cls: "num", render: (s) => num(s.retur) },
               { label: "Fill rate", cls: "num", render: (s) => (s.fill >= 95 ? badge(pct(s.fill), "green") : badge(pct(s.fill), "amber")) },
-              { label: "Lead time", cls: "num", render: (s) => `${dec1(s.lead)} hari` },
-              { label: "TOP", cls: "num", render: (s) => `${s.top} hari` },
+              { label: "Lead time", cls: "num nowrap", render: (s) => `${dec1(s.lead)} hari` },
+              { label: "TOP", cls: "num nowrap", render: (s) => `${s.top} hari` },
               { label: "Hutang", cls: "num", render: (s) => num(s.hutangS) },
             ],
             rows: M.sup,

@@ -104,9 +104,9 @@
       <div class="table-wrap"><table class="tbl compact">
         <thead><tr><th>Level</th><th>Satuan</th><th class="num">Isi</th><th>Berisi</th><th>Barcode satuan</th><th>Dapat dijual</th></tr></thead>
         <tbody>
-          <tr><td class="strong">Besar (pembelian)</td><td><select class="select sm" aria-label="Satuan besar">${["Box", "Dus", "Karton"].map((s) => `<option ${s === besar ? "selected" : ""}>${s}</option>`).join("")}</select></td><td class="num">${numIn("of-isi-besar", isiBesar, 'style="width:80px;text-align:right" aria-label="Isi satuan besar"')}</td><td>${esc(v.satuan)}</td><td><input class="input sm" placeholder="Opsional" aria-label="Barcode satuan besar"></td><td><label class="check"><input type="checkbox">Grosir</label></td></tr>
-          <tr><td class="strong">Sedang (stok)</td><td><select class="select sm" aria-label="Satuan sedang">${["Strip", "Botol", "Tube", "Sachet", "Pot", "Box", "Pcs", "Unit"].map((s) => `<option ${s === v.satuan ? "selected" : ""}>${s}</option>`).join("")}</select></td><td class="num">${numIn("of-isi-sedang", v.isi, 'style="width:80px;text-align:right" aria-label="Isi satuan sedang"')}</td><td>${esc(v.isi > 1 ? v.bentuk : v.satuan)}</td><td><input class="input sm" value="${esc(v.barcode)}" aria-label="Barcode satuan sedang"></td><td><label class="check"><input type="checkbox" checked>Ya</label></td></tr>
-          <tr><td class="strong">Kecil (eceran)</td><td><input class="input sm" value="${esc(v.isi > 1 ? v.bentuk : v.satuan)}" aria-label="Satuan kecil"></td><td class="num">1</td><td>—</td><td><input class="input sm" placeholder="Opsional" aria-label="Barcode satuan kecil"></td><td><label class="check"><input type="checkbox" ${v.isi > 1 ? "checked" : ""}>Ya</label></td></tr>
+          <tr><td class="strong">Besar (pembelian)</td><td><select class="select sm" aria-label="Satuan besar">${["Box", "Dus", "Karton"].map((s) => `<option ${s === besar ? "selected" : ""}>${s}</option>`).join("")}</select></td><td class="num nowrap">${numIn("of-isi-besar", isiBesar, 'style="width:80px;text-align:right" aria-label="Isi satuan besar"')}</td><td>${esc(v.satuan)}</td><td><input class="input sm" placeholder="Opsional" aria-label="Barcode satuan besar"></td><td><label class="check"><input type="checkbox">Grosir</label></td></tr>
+          <tr><td class="strong">Sedang (stok)</td><td><select class="select sm" aria-label="Satuan sedang">${["Strip", "Botol", "Tube", "Sachet", "Pot", "Box", "Pcs", "Unit"].map((s) => `<option ${s === v.satuan ? "selected" : ""}>${s}</option>`).join("")}</select></td><td class="num nowrap">${numIn("of-isi-sedang", v.isi, 'style="width:80px;text-align:right" aria-label="Isi satuan sedang"')}</td><td>${esc(v.isi > 1 ? v.bentuk : v.satuan)}</td><td><input class="input sm" value="${esc(v.barcode)}" aria-label="Barcode satuan sedang"></td><td><label class="check"><input type="checkbox" checked>Ya</label></td></tr>
+          <tr><td class="strong">Kecil (eceran)</td><td><input class="input sm" value="${esc(v.isi > 1 ? v.bentuk : v.satuan)}" aria-label="Satuan kecil"></td><td class="num nowrap">1</td><td>—</td><td><input class="input sm" placeholder="Opsional" aria-label="Barcode satuan kecil"></td><td><label class="check"><input type="checkbox" ${v.isi > 1 ? "checked" : ""}>Ya</label></td></tr>
         </tbody>
       </table></div>
       ${alert("success", "sync_alt", "Konversi satuan", `<span id="of-konv"></span>`)}
@@ -125,7 +125,7 @@
       </div>
       <div class="table-wrap"><table class="tbl compact">
         <thead><tr><th>Level harga</th><th class="num">Harga jual (Rp)</th><th class="num">Margin</th><th>Keterangan</th></tr></thead>
-        <tbody>${lvl.map(([id, l, val, k]) => `<tr><td class="strong">${l}</td><td class="num">${numIn(id, val, `style="width:140px;text-align:right" aria-label="${l}"`)}</td><td class="num" data-m="${id}">${val && h.hpp ? marginBadge(margin(h.hpp, val)) : "—"}</td><td class="muted small">${k}</td></tr>`).join("")}</tbody>
+        <tbody>${lvl.map(([id, l, val, k]) => `<tr><td class="strong">${l}</td><td class="num nowrap">${numIn(id, val, `style="width:140px;text-align:right" aria-label="${l}"`)}</td><td class="num nowrap" data-m="${id}">${val && h.hpp ? marginBadge(margin(h.hpp, val)) : "—"}</td><td class="muted small">${k}</td></tr>`).join("")}</tbody>
       </table></div>
       <div class="form-grid cols-3">
         ${select("Metode penetapan harga", ["Markup dari HPP", "Margin target", "Manual / mengikuti HET"], { value: "Markup dari HPP" })}
@@ -136,9 +136,9 @@
     const stokTab = `
       <div class="table-wrap"><table class="tbl compact">
         <thead><tr><th>Cabang</th><th class="num">Stok saat ini</th><th class="num">Stok minimum</th><th class="num">Stok maksimum</th><th>Lokasi rak</th><th>Dijual di cabang</th></tr></thead>
-        <tbody>${DB.cabang.map((c) => `<tr><td class="strong">${esc(c.nama)}</td><td class="num">${num(v.stok[c.id] || 0)} ${esc(v.satuan)}</td>
-          <td class="num"><input class="input sm" type="number" value="${v.min}" style="width:90px;text-align:right" aria-label="Stok minimum ${esc(c.nama)}"></td>
-          <td class="num"><input class="input sm" type="number" value="${v.min * 9}" style="width:90px;text-align:right" aria-label="Stok maksimum ${esc(c.nama)}"></td>
+        <tbody>${DB.cabang.map((c) => `<tr><td class="strong">${esc(c.nama)}</td><td class="num nowrap">${num(v.stok[c.id] || 0)} ${esc(v.satuan)}</td>
+          <td class="num nowrap"><input class="input sm" type="number" value="${v.min}" style="width:90px;text-align:right" aria-label="Stok minimum ${esc(c.nama)}"></td>
+          <td class="num nowrap"><input class="input sm" type="number" value="${v.min * 9}" style="width:90px;text-align:right" aria-label="Stok maksimum ${esc(c.nama)}"></td>
           <td><input class="input sm" value="${esc(v.rak)}" style="width:100px" aria-label="Lokasi rak ${esc(c.nama)}"></td>
           <td><label class="switch"><input type="checkbox" checked aria-label="Dijual di ${esc(c.nama)}"><span></span></label></td></tr>`).join("")}</tbody>
       </table></div>
@@ -195,12 +195,12 @@
           <div class="row">${badge(`Stok total ${num(totalStok(o))} ${esc(o.satuan)}`, "blue", { icon: "inventory_2" })}${badge(`Rak ${esc(o.rak)}`, "gray", { icon: "shelves" })}</div>
         </div>
         <div class="grid g-2">
-          ${card({ title: "Informasi umum", icon: "info", body: `<dl class="kv">
+          ${card({ title: "Informasi umum", icon: "info", body: `<dl class="kv" style="margin:0">
             <dt>Kekuatan</dt><dd>${esc(kekuatan(o))}</dd><dt>Bentuk sediaan</dt><dd>${esc(o.bentuk)}</dd>
             <dt>Satuan & isi</dt><dd>${esc(satuanIsi(o))}</dd><dt>Satuan besar</dt><dd>${satBesar(o)[0]} @${satBesar(o)[1]} ${esc(o.satuan)}</dd>
             <dt>Kategori</dt><dd>${esc(o.kategori)}</dd><dt>NIE / BPOM</dt><dd class="mono">${nie(o)}</dd>
             <dt>Penyimpanan</dt><dd>${esc(suhu(o))}</dd><dt>Metode keluar</dt><dd>FEFO</dd></dl>` })}
-          ${card({ title: "Harga & margin", icon: "sell", tone: "green", body: `<dl class="kv">
+          ${card({ title: "Harga & margin", icon: "sell", tone: "green", body: `<dl class="kv" style="margin:0">
             <dt>HNA</dt><dd>${rp(h.hna)}</dd><dt>Diskon PBF</dt><dd>${h.disc}%</dd><dt>PPN masukan 11%</dt><dd>${rp(h.ppn)}</dd>
             <dt>HPP / ${esc(o.satuan)}</dt><dd>${rp(h.hpp)}</dd>
             <dt>Harga jual umum</dt><dd>${rp(h.jual)} ${marginBadge(margin(h.hpp, h.jual))}</dd>
@@ -210,10 +210,10 @@
           cls: "compact",
           columns: [
             { label: "Cabang", render: (c) => `<b>${esc(c.nama)}</b>` },
-            { label: "Stok", cls: "num", render: (c) => `${num(o.stok[c.id])} ${esc(o.satuan)}` },
-            { label: "Min", cls: "num", render: () => num(o.min) },
-            { label: "Maks", cls: "num", render: () => num(o.min * 9) },
-            { label: "Nilai HPP", cls: "num", render: (c) => rp(o.stok[c.id] * o.hargaBeli) },
+            { label: "Stok", cls: "num nowrap", render: (c) => `${num(o.stok[c.id])} ${esc(o.satuan)}` },
+            { label: "Min", cls: "num nowrap", render: () => num(o.min) },
+            { label: "Maks", cls: "num nowrap", render: () => num(o.min * 9) },
+            { label: "Nilai HPP", cls: "num nowrap", render: (c) => rp(o.stok[c.id] * o.hargaBeli) },
             { label: "Status", render: (c) => stokBadge(stokStatus(o.stok[c.id], o, c.id)) },
           ],
           rows: DB.cabang,
@@ -225,7 +225,7 @@
             { label: "Cabang", render: (b) => esc(cabShort(b.cabang)) },
             { label: "ED", render: (b) => tgl(b.ed) },
             { label: "Sisa", render: (b) => sisaBadge(b.sisaHari) },
-            { label: "Qty", cls: "num", render: (b) => `${num(b.qty)} ${esc(b.satuan)}` },
+            { label: "Qty", cls: "num nowrap", render: (b) => `${num(b.qty)} ${esc(b.satuan)}` },
             { label: "Supplier", render: (b) => `<span class="small">${esc(supShort(b.supplier))}</span>` },
           ],
           rows: bs, rowCls: (b) => (b.sisaHari < 0 ? "row-danger" : b.sisaHari <= 30 ? "row-warn" : ""),
@@ -272,17 +272,17 @@
           ${table({
             columns: [
               { label: "Kode", render: (o) => `<span class="mono strong">${o.kode}</span><div class="t-sub mono">${o.barcode}</div>` },
-              { label: "Nama obat", render: (o) => `<div class="t-main">${esc(o.nama)}</div><div class="t-sub">${esc(o.generik)} · ${esc(o.pabrik)}</div>` },
+              { label: "Nama obat", render: (o) => `<div class="t-main" style="min-width:190px">${esc(o.nama)}</div><div class="t-sub">${esc(o.generik)} · ${esc(o.pabrik)}</div>` },
               { label: "Golongan", render: (o) => golongan(o.golongan) },
               { label: "Kategori", render: (o) => `<span class="small">${esc(o.kategori)}</span>` },
               { label: "Satuan / isi", render: (o) => `<span class="nowrap">${esc(satuanIsi(o))}</span>` },
-              { label: "Harga beli", cls: "num", render: (o) => rp(o.hargaBeli) },
-              { label: "Harga jual", cls: "num", render: (o) => `<b>${rp(o.hargaJual)}</b><div class="t-sub">resep ${rp(o.hargaResep)}</div>` },
-              { label: "Margin", cls: "num", render: (o) => marginBadge(margin(o.hargaBeli, o.hargaJual)) },
+              { label: "Harga beli", cls: "num nowrap", render: (o) => rp(o.hargaBeli) },
+              { label: "Harga jual", cls: "num nowrap", render: (o) => `<b>${rp(o.hargaJual)}</b><div class="t-sub">resep ${rp(o.hargaResep)}</div>` },
+              { label: "Margin", cls: "num nowrap", render: (o) => marginBadge(margin(o.hargaBeli, o.hargaJual)) },
               { label: "Rak", render: (o) => `<span class="mono">${o.rak}</span>` },
-              { label: "Stok total", cls: "num", render: (o) => { const t = totalStok(o); return `<b ${t < o.min * CAB.length ? 'style="color:var(--t-red-fg)"' : ""}>${num(t)}</b><div class="t-sub">${esc(o.satuan)}</div>`; } },
+              { label: "Stok total", cls: "num nowrap", render: (o) => { const t = totalStok(o); return `<b ${t < o.min * CAB.length ? 'style="color:var(--t-red-fg)"' : ""}>${num(t)}</b><div class="t-sub">${esc(o.satuan)}</div>`; } },
               { label: "Status", render: (o) => status(isAktif(o) ? "Aktif" : "Nonaktif") },
-              { label: "", cls: "actions", render: (o) => `<div class="btn-group">
+              { label: "", cls: "actions", render: (o) => `<div class="btn-group" style="flex-wrap:nowrap">
                 ${btn("", "info", { icon: "visibility", size: "sm", title: "Lihat detail", attrs: `data-obat-view="${o.kode}"` })}
                 ${btn("", "warning", { icon: "edit", size: "sm", title: "Ubah", attrs: `data-obat-edit="${o.kode}"` })}
                 ${btn("", "danger", { icon: "delete", size: "sm", title: "Hapus", attrs: `data-obat-del="${o.kode}"` })}</div>` },
@@ -435,12 +435,12 @@
             columns: [
               { label: "Obat", render: (r) => `<div class="t-main">${esc(r.o.nama)}</div><div class="t-sub"><span class="mono">${r.o.kode}</span> · ${golongan(r.o.golongan)}</div>` },
               { label: "Satuan", render: (r) => `<span class="nowrap small">${esc(satuanIsi(r.o))}</span>` },
-              ...CAB.map((c) => ({ label: c === cab ? `${c} ●` : c, cls: "num", render: (r) => cell(r.o, c) })),
-              { label: "Total", cls: "num", render: (r) => `<b>${num(totalStok(r.o))}</b>` },
-              { label: `Min (${cab === "ALL" ? "total" : cab})`, cls: "num", render: (r) => num(minOf(r.o, cab)) },
-              { label: "Nilai HPP", cls: "num", render: (r) => rp(r.q * r.o.hargaBeli) },
+              ...CAB.map((c) => ({ label: c === cab ? `${c} ●` : c, cls: "num nowrap", render: (r) => cell(r.o, c) })),
+              { label: "Total", cls: "num nowrap", render: (r) => `<b>${num(totalStok(r.o))}</b>` },
+              { label: `Min (${cab === "ALL" ? "total" : cab})`, cls: "num nowrap", render: (r) => num(minOf(r.o, cab)) },
+              { label: "Nilai HPP", cls: "num nowrap", render: (r) => rp(r.q * r.o.hargaBeli) },
               { label: "Status", render: (r) => stokBadge(r.st) },
-              { label: "", cls: "actions", render: (r) => `<div class="btn-group">
+              { label: "", cls: "actions", render: (r) => `<div class="btn-group" style="flex-wrap:nowrap">
                 ${btn("", "warning", { icon: "tune", size: "sm", title: "Penyesuaian stok", attrs: `data-adj="${r.o.kode}"` })}
                 ${btn("", "dark", { icon: "history_edu", size: "sm", title: "Kartu stok", attrs: `data-go="kartustok" data-ks="${r.o.kode}"` })}</div>` },
             ],
@@ -458,9 +458,9 @@
               { label: "ED", render: (b) => `<span class="nowrap">${tgl(b.ed)}</span>` },
               { label: "Sisa", render: (b) => sisaBadge(b.sisaHari) },
               { label: "Cabang", render: (b) => esc(cabShort(b.cabang)) },
-              { label: "Qty", cls: "num", render: (b) => `${num(b.qty)} <span class="muted small">${esc(b.satuan)}</span>` },
+              { label: "Qty", cls: "num nowrap", render: (b) => `${num(b.qty)} <span class="muted small">${esc(b.satuan)}</span>` },
               { label: "Supplier", render: (b) => `<span class="small">${esc(supShort(b.supplier))}</span>` },
-              { label: "Nilai HPP", cls: "num", render: (b) => rp(nilaiBatch(b)) },
+              { label: "Nilai HPP", cls: "num nowrap", render: (b) => rp(nilaiBatch(b)) },
             ],
             rows: bs, rowCls: (b) => (b.sisaHari < 0 ? "row-danger" : b.sisaHari <= 30 ? "row-warn" : ""),
           })}
@@ -472,17 +472,17 @@
             columns: [
               { label: `<input type="checkbox" checked aria-label="Pilih semua">`, render: () => `<input type="checkbox" checked aria-label="Pilih item">` },
               { label: "Obat", render: (r) => `<div class="t-main">${esc(r.o.nama)}</div><div class="t-sub">${golongan(r.o.golongan)}</div>` },
-              { label: "Stok", cls: "num", render: (r) => `<b style="color:var(--t-${r.q < minOf(r.o, cab) ? "red" : "amber"}-fg)">${num(r.q)}</b>` },
-              { label: "Avg jual/hari", cls: "num", render: (r) => num(r.avg) },
-              { label: "Lead time", cls: "num", render: (r) => `${r.lead} hari` },
-              { label: "Safety stock", cls: "num", render: (r) => num(r.safety) },
-              { label: "ROP", cls: "num", render: (r) => num(r.rop) },
-              { label: "Qty saran", cls: "num", render: (r) => `<input class="input sm" type="number" value="${r.qty}" step="${r.kel}" style="width:90px;text-align:right" aria-label="Qty saran ${esc(r.o.nama)}"><div class="t-sub">${esc(r.o.satuan)} · kelipatan ${r.kel}</div>` },
+              { label: "Stok", cls: "num nowrap", render: (r) => `<b style="color:var(--t-${r.q < minOf(r.o, cab) ? "red" : "amber"}-fg)">${num(r.q)}</b>` },
+              { label: "Avg jual/hari", cls: "num nowrap", render: (r) => num(r.avg) },
+              { label: "Lead time", cls: "num nowrap", render: (r) => `${r.lead} hari` },
+              { label: "Safety stock", cls: "num nowrap", render: (r) => num(r.safety) },
+              { label: "ROP", cls: "num nowrap", render: (r) => num(r.rop) },
+              { label: "Qty saran", cls: "num nowrap", render: (r) => `<input class="input sm" type="number" value="${r.qty}" step="${r.kel}" style="width:90px;text-align:right" aria-label="Qty saran ${esc(r.o.nama)}"><div class="t-sub">${esc(r.o.satuan)} · kelipatan ${r.kel}</div>` },
               { label: "Supplier", render: (r) => `<span class="small">${esc(supShort(r.sup.nama))}</span><div class="t-sub">TOP ${r.sup.top} hari</div>` },
-              { label: "Estimasi nilai", cls: "num", render: (r) => rp(r.nilai) },
+              { label: "Estimasi nilai", cls: "num nowrap", render: (r) => rp(r.nilai) },
             ],
             rows: sar, empty: "Semua stok di atas titik pesan ulang",
-            foot: `<tr><td colspan="9">Total estimasi ${sar.length} item</td><td class="num">${rp(sar.reduce((s, r) => s + r.nilai, 0))}</td></tr>`,
+            foot: `<tr><td colspan="9">Total estimasi ${sar.length} item</td><td class="num nowrap">${rp(sar.reduce((s, r) => s + r.nilai, 0))}</td></tr>`,
           })}
           <div class="card-foot">
             <span class="small muted">${icon("info")} SP akan dipisah otomatis per PBF dan per jenis (reguler / OOT / prekursor / psikotropika / narkotika).</span>
@@ -547,11 +547,10 @@
         { label: "Cabang", render: (b) => `<span class="small">${esc(cabShort(b.cabang))}</span>` },
         { label: "ED", render: (b) => `<span class="nowrap">${tgl(b.ed)}</span>` },
         { label: "Sisa hari", render: (b) => sisaBadge(b.sisaHari) },
-        { label: "Qty", cls: "num", render: (b) => `${num(b.qty)} <span class="muted small">${esc(b.satuan)}</span>` },
-        { label: "Nilai HPP", cls: "num", render: (b) => `<b>${rp(nilaiBatch(b))}</b>` },
+        { label: "Qty", cls: "num nowrap", render: (b) => `${num(b.qty)} <span class="muted small">${esc(b.satuan)}</span>` },
+        { label: "Nilai HPP", cls: "num nowrap", render: (b) => `<b>${rp(nilaiBatch(b))}</b>` },
         { label: "Supplier", render: (b) => `<span class="small">${esc(supShort(b.supplier))}</span>` },
-        { label: "Rekomendasi", render: () => `<span class="small muted">${REKOM[bid]}</span>` },
-        { label: "Aksi", cls: "actions", render: (b) => `<div class="btn-group">${act(b, "retur")}${bid === "ed" ? "" : act(b, "diskon")}${act(b, "karantina")}${act(b, "musnah")}</div>` },
+        { label: "Aksi", cls: "actions", render: (b) => `<div class="btn-group" style="flex-wrap:nowrap">${act(b, "retur")}${bid === "ed" ? "" : act(b, "diskon")}${act(b, "karantina")}${act(b, "musnah")}</div>` },
       ];
 
       return `
@@ -596,7 +595,8 @@
         tools: `${btn("Retur terpilih", "warning", { icon: "assignment_return", size: "sm", attrs: 'data-toast="Batch terpilih diajukan retur ke PBF"' })}${btn("Karantina terpilih", "dark", { icon: "lock", size: "sm", attrs: 'data-toast="Batch terpilih dikarantina"' })}`,
         body: `<div style="padding:14px 20px 0">${tabs("kad-tab", BUCKETS.map((k) => ({ id: k.id, label: k.label, icon: k.ic, n: grp[k.id].length })), "ed")}</div>
           ${BUCKETS.map((k) => `<div data-panel-group="kad-tab" data-panel="${k.id}" style="margin-top:12px" ${k.id === "ed" ? "" : "hidden"}>
-            ${table({ columns: cols(k.id), rows: grp[k.id], rowCls: (b) => (b.sisaHari < 0 ? "row-danger" : b.sisaHari <= 30 ? "row-warn" : ""), empty: "Tidak ada batch pada kelompok ini", foot: grp[k.id].length ? `<tr><td colspan="6">Total ${grp[k.id].length} batch</td><td class="num">${num(grp[k.id].reduce((s, b) => s + b.qty, 0))}</td><td class="num">${rp(sumNilai(grp[k.id]))}</td><td colspan="3"></td></tr>` : "" })}
+            <div class="row small muted" style="padding:0 20px 10px">${icon("tips_and_updates")}<span>Rekomendasi: <b style="color:var(--text-2)">${REKOM[k.id]}</b></span></div>
+            ${table({ columns: cols(k.id), rows: grp[k.id], rowCls: (b) => (b.sisaHari < 0 ? "row-danger" : b.sisaHari <= 30 ? "row-warn" : ""), empty: "Tidak ada batch pada kelompok ini", foot: grp[k.id].length ? `<tr><td colspan="6">Total ${grp[k.id].length} batch</td><td class="num nowrap">${num(grp[k.id].reduce((s, b) => s + b.qty, 0))}</td><td class="num nowrap">${rp(sumNilai(grp[k.id]))}</td><td colspan="2"></td></tr>` : "" })}
           </div>`).join("")}`,
       })}
 
@@ -625,11 +625,11 @@
                 { label: "Nama obat", render: (b) => `<div class="t-main">${esc(b.nama)}</div><div class="t-sub">${golongan(b.golongan)}</div>` },
                 { label: "Batch / ED", render: (b) => `<span class="mono">${b.batch}</span><div class="t-sub">${tgl(b.ed)}</div>` },
                 { label: "Cabang", render: (b) => `<span class="small">${esc(cabShort(b.cabang))}</span>` },
-                { label: "Qty", cls: "num", render: (b) => `${num(b.qty)} ${esc(b.satuan)}` },
-                { label: "Nilai HPP", cls: "num", render: (b) => rp(nilaiBatch(b)) },
+                { label: "Qty", cls: "num nowrap", render: (b) => `${num(b.qty)} ${esc(b.satuan)}` },
+                { label: "Nilai HPP", cls: "num nowrap", render: (b) => rp(nilaiBatch(b)) },
               ],
               rows: destroy, empty: "Tidak ada obat kedaluwarsa untuk dimusnahkan",
-              foot: `<tr><td colspan="4">Total ${destroy.length} batch</td><td class="num">${num(destroy.reduce((s, b) => s + b.qty, 0))}</td><td class="num">${rp(sumNilai(destroy))}</td></tr>`,
+              foot: `<tr><td colspan="4">Total ${destroy.length} batch</td><td class="num nowrap">${num(destroy.reduce((s, b) => s + b.qty, 0))}</td><td class="num nowrap">${rp(sumNilai(destroy))}</td></tr>`,
             })}
           </div>
         </div>`,
@@ -658,8 +658,8 @@
           columns: [
             { label: "No. BA", render: (r) => `<span class="mono strong">${r[0]}</span>` },
             { label: "Tanggal", render: (r) => tgl(dIso(r[1])) },
-            { label: "Item", cls: "num", render: (r) => r[2] },
-            { label: "Nilai", cls: "num", render: (r) => rp(r[3]) },
+            { label: "Item", cls: "num nowrap", render: (r) => r[2] },
+            { label: "Nilai", cls: "num nowrap", render: (r) => rp(r[3]) },
             { label: "Metode", render: (r) => `<span class="small">${r[4]}</span>` },
             { label: "Saksi eksternal", render: (r) => `<span class="small">${r[5]}</span>` },
             { label: "Status", render: () => status("Selesai") },
@@ -751,7 +751,7 @@
             <div class="grid g-3" style="gap:12px">${raks.map(([r, n, s]) => `<div class="row" style="gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;flex-wrap:nowrap">
               <div class="sq-ico ${s === "done" ? "green" : s === "now" ? "blue" : "amber"}">${icon(s === "done" ? "check" : s === "now" ? "timelapse" : "lock")}</div>
               <div><div class="strong small">Rak ${r}</div><div class="small muted">${n}</div><div style="margin-top:4px">${s === "done" ? badge("Selesai", "green") : s === "now" ? badge("Sedang dihitung", "blue") : badge("Menunggu", "gray")}</div></div></div>`).join("")}</div>
-            <dl class="kv"><dt>Mulai</dt><dd>${tgl(DB.TODAY)} · 20.30 WIB</dd><dt>Petugas hitung</dt><dd>Nabila Putri, Yulia Anggraini</dd><dt>Pengawas</dt><dd>${esc(DB.cabang.find((c) => c.id === cab).apoteker)}</dd><dt>Transaksi rak</dt><dd>${badge("Dibekukan", "amber", { icon: "ac_unit" })}</dd></dl>
+            <dl class="kv" style="margin:0"><dt>Mulai</dt><dd>${tgl(DB.TODAY)} · 20.30 WIB</dd><dt>Petugas hitung</dt><dd>Nabila Putri, Yulia Anggraini</dd><dt>Pengawas</dt><dd>${esc(DB.cabang.find((c) => c.id === cab).apoteker)}</dd><dt>Transaksi rak</dt><dd>${badge("Dibekukan", "amber", { icon: "ac_unit" })}</dd></dl>
           </div>`,
         })}
         ${card({
@@ -772,14 +772,14 @@
             { label: "#", render: (r, i) => i + 1 },
             { label: "Obat", render: (r) => `<div class="t-main">${esc(r.o.nama)}</div><div class="t-sub">${golongan(r.o.golongan)} · rak <span class="mono">${r.o.rak}</span></div>` },
             { label: "Batch / ED", render: (r) => `<span class="mono">${r.b.batch}</span><div class="t-sub">ED ${tgl(r.b.ed)}</div>` },
-            { label: "Stok sistem", cls: "num", render: (r) => `${num(r.sys)} <span class="muted small">${esc(r.o.satuan)}</span>` },
-            { label: "Stok fisik", cls: "num", render: (r, i) => `<input type="number" min="0" class="input sm opn-fisik" data-i="${i}" value="${r.fisik ?? ""}" placeholder="Hitung…" style="width:96px;text-align:right" aria-label="Stok fisik ${esc(r.o.nama)}">` },
-            { label: "Selisih", cls: "num", render: (r) => `<span class="opn-sel">${r.fisik === null ? '<span class="muted">—</span>' : selHtml(r.fisik - r.sys)}</span>` },
-            { label: "Nilai selisih", cls: "num", render: (r) => `<span class="opn-nil">${r.fisik === null ? '<span class="muted">—</span>' : sgnRp((r.fisik - r.sys) * r.b.hargaBeli)}</span>` },
+            { label: "Stok sistem", cls: "num nowrap", render: (r) => `${num(r.sys)} <span class="muted small">${esc(r.o.satuan)}</span>` },
+            { label: "Stok fisik", cls: "num nowrap", render: (r, i) => `<input type="number" min="0" class="input sm opn-fisik" data-i="${i}" value="${r.fisik ?? ""}" placeholder="Hitung…" style="width:96px;text-align:right" aria-label="Stok fisik ${esc(r.o.nama)}">` },
+            { label: "Selisih", cls: "num nowrap", render: (r) => `<span class="opn-sel">${r.fisik === null ? '<span class="muted">—</span>' : selHtml(r.fisik - r.sys)}</span>` },
+            { label: "Nilai selisih", cls: "num nowrap", render: (r) => `<span class="opn-nil">${r.fisik === null ? '<span class="muted">—</span>' : sgnRp((r.fisik - r.sys) * r.b.hargaBeli)}</span>` },
             { label: "Keterangan", render: (r, i) => `<input class="input sm opn-ket" data-i="${i}" value="${esc(r.ket)}" placeholder="Catatan selisih" style="min-width:190px" aria-label="Keterangan">` },
           ],
           rows: OPN, rowCls: (r) => opnCls(r),
-          foot: `<tr><td colspan="3">Total</td><td class="num">${num(OPN.reduce((s, r) => s + r.sys, 0))}</td><td class="num" id="opn-f-fis"></td><td class="num" id="opn-f-sel"></td><td class="num" id="opn-f-nil"></td><td></td></tr>`,
+          foot: `<tr><td colspan="3">Total</td><td class="num nowrap">${num(OPN.reduce((s, r) => s + r.sys, 0))}</td><td class="num nowrap" id="opn-f-fis"></td><td class="num nowrap" id="opn-f-sel"></td><td class="num nowrap" id="opn-f-nil"></td><td></td></tr>`,
         }),
         foot: `<span class="small muted" id="opn-foot-note">${icon("info")} Hitungan tersimpan otomatis sebagai draft setiap 30 detik.</span><span style="flex:1"></span>
           ${btn("Simpan Hitungan", "primary", { icon: "save", attrs: 'data-toast="Hitungan opname disimpan (draft)"' })}
@@ -795,9 +795,9 @@
             { label: "No. sesi", render: (r) => `<span class="mono strong">${r[0]}</span>` },
             { label: "Tanggal", render: (r) => tgl(dIso(r[1])) },
             { label: "Jenis / lingkup", render: (r) => `<span class="small">${r[2]}</span>` },
-            { label: "Item", cls: "num", render: (r) => num(r[3]) },
-            { label: "Item selisih", cls: "num", render: (r) => num(r[4]) },
-            { label: "Nilai selisih", cls: "num", render: (r) => `<b style="color:var(--t-${r[5] < 0 ? "red" : "green"}-fg)">${sgnRp(r[5])}</b>` },
+            { label: "Item", cls: "num nowrap", render: (r) => num(r[3]) },
+            { label: "Item selisih", cls: "num nowrap", render: (r) => num(r[4]) },
+            { label: "Nilai selisih", cls: "num nowrap", render: (r) => `<b style="color:var(--t-${r[5] < 0 ? "red" : "green"}-fg)">${sgnRp(r[5])}</b>` },
             { label: "Akurasi", render: (r) => `<div style="min-width:110px" class="stack"><span class="small num">${pct(r[6])}</span>${progress(r[6], 100, r[6] >= 98 ? "green" : r[6] >= 94 ? "" : "amber")}</div>` },
             { label: "PIC", render: (r) => esc(r[7]) },
             { label: "Status", render: (r) => status(r[8]) },
@@ -880,8 +880,8 @@
       <td><select class="select sm" aria-label="Obat">${MUT_POOL.map((x) => `<option ${x === o ? "selected" : ""}>${esc(x.nama)}</option>`).join("")}</select></td>
       <td><input class="input sm mono" value="${b.batch}" style="width:120px" aria-label="Batch"></td>
       <td><input class="input sm" type="date" value="${b.ed}" aria-label="ED"></td>
-      <td class="num">${num(o.stok[dari])} ${esc(o.satuan)}</td>
-      <td class="num"><input class="input sm" type="number" value="20" min="1" style="width:80px;text-align:right" aria-label="Qty"></td>
+      <td class="num nowrap">${num(o.stok[dari])} ${esc(o.satuan)}</td>
+      <td class="num nowrap"><input class="input sm" type="number" value="20" min="1" style="width:80px;text-align:right" aria-label="Qty"></td>
       <td>${esc(o.satuan)}</td>
       <td class="actions">${btn("", "danger", { icon: "delete", size: "sm", title: "Hapus baris", attrs: "data-mrow-del" })}</td></tr>`; };
     const el = modal.open({
@@ -926,8 +926,8 @@
       body: `
         ${m.status === "Ditolak" ? alert("danger", "block", "Mutasi ditolak", "Stok cabang asal tidak mencukupi setelah penjualan hari berjalan. Silakan ajukan ulang atau buat SP ke PBF.") : stepsHtml(m.status)}
         <div class="grid g-2">
-          <dl class="kv"><dt>Dari</dt><dd>${esc(cabangNama(m.dari))}</dd><dt>Ke</dt><dd>${esc(cabangNama(m.ke))}</dd><dt>Tanggal</dt><dd>${tgl(m.tgl)}</dd><dt>Pengirim</dt><dd>${esc(m.pengirim)}</dd></dl>
-          <dl class="kv"><dt>Jumlah item</dt><dd>${m.item} item</dd><dt>Nilai (HPP)</dt><dd>${rp(m.nilai)}</dd><dt>Status</dt><dd>${status(m.status)}</dd><dt>Surat jalan</dt><dd class="mono">SJ-${m.no.slice(4)}</dd></dl>
+          <dl class="kv" style="margin:0"><dt>Dari</dt><dd>${esc(cabangNama(m.dari))}</dd><dt>Ke</dt><dd>${esc(cabangNama(m.ke))}</dd><dt>Tanggal</dt><dd>${tgl(m.tgl)}</dd><dt>Pengirim</dt><dd>${esc(m.pengirim)}</dd></dl>
+          <dl class="kv" style="margin:0"><dt>Jumlah item</dt><dd>${m.item} item</dd><dt>Nilai (HPP)</dt><dd>${rp(m.nilai)}</dd><dt>Status</dt><dd>${status(m.status)}</dd><dt>Surat jalan</dt><dd class="mono">SJ-${m.no.slice(4)}</dd></dl>
         </div>
         ${table({
           cls: "compact",
@@ -936,7 +936,7 @@
             { label: "Obat", render: (r) => `<div class="t-main">${esc(r.o.nama)}</div><div class="t-sub">${golongan(r.o.golongan)}</div>` },
             { label: "Batch", render: (r) => `<span class="mono">${r.batch}</span>` },
             { label: "ED", render: (r) => tgl(r.ed) },
-            { label: "Qty", cls: "num", render: (r) => `${num(r.qty)} ${esc(r.o.satuan)}` },
+            { label: "Qty", cls: "num nowrap", render: (r) => `${num(r.qty)} ${esc(r.o.satuan)}` },
             { label: "Cek terima", render: () => (m.status === "Diterima" ? badge("Sesuai", "green", { icon: "check" }) : badge("Belum", "gray")) },
           ],
           rows: items,
@@ -977,12 +977,12 @@
         { label: "No. mutasi", render: (m) => `<span class="mono strong">${m.no}</span><div class="t-sub">${tgl(m.tgl)}</div>` },
         { label: "Rute", render: (m) => `<span class="nowrap"><b>${m.dari}</b> ${icon("arrow_forward", "muted")} <b>${m.ke}</b></span><div class="t-sub">${esc(cabShort(m.dari))} → ${esc(cabShort(m.ke))}</div>` },
         ...(cab === "ALL" ? [] : [{ label: "Arah", render: (m) => (m.dari === cab ? badge("Keluar", "amber", { icon: "north_east" }) : badge("Masuk", "green", { icon: "south_west" })) }]),
-        { label: "Item", cls: "num", render: (m) => num(m.item) },
-        { label: "Nilai HPP", cls: "num", render: (m) => rp(m.nilai) },
+        { label: "Item", cls: "num nowrap", render: (m) => num(m.item) },
+        { label: "Nilai HPP", cls: "num nowrap", render: (m) => rp(m.nilai) },
         { label: "Pengirim", render: (m) => esc(m.pengirim) },
         { label: "Progres", render: (m) => { const i = m.status === "Ditolak" ? 0 : stepIdx(m.status) + 1; return `<div class="stack" style="gap:4px;min-width:120px"><span class="small muted">${m.status === "Ditolak" ? "Dihentikan" : `Tahap ${i}/5`}</span>${progress(i, 5, m.status === "Ditolak" ? "red" : i === 5 ? "green" : "")}</div>`; } },
         { label: "Status", render: (m) => status(m.status) },
-        { label: "", cls: "actions", render: (m) => `<div class="btn-group">
+        { label: "", cls: "actions", render: (m) => `<div class="btn-group" style="flex-wrap:nowrap">
           ${btn("", "info", { icon: "visibility", size: "sm", title: "Lihat detail", attrs: `data-mut="${m.no}"` })}
           ${m.status === "Permintaan" ? btn("", "success", { icon: "check", size: "sm", title: "Setujui", attrs: `data-mut-ok="${m.no}"` }) : ""}
           ${["Dikirim", "Dalam Perjalanan"].includes(m.status) ? btn("", "success", { icon: "where_to_vote", size: "sm", title: "Terima barang", attrs: `data-mut-terima="${m.no}"` }) : ""}
@@ -1119,8 +1119,8 @@
           title: esc(o.nama), desc: `${esc(o.generik)} · ${esc(o.pabrik)}`, icon: "medication", tone: "blue",
           tools: `${golongan(o.golongan)}${status(isAktif(o) ? "Aktif" : "Nonaktif")}`,
           body: `<div class="grid g-2" style="gap:12px 28px">
-            <dl class="kv"><dt>Kode / barcode</dt><dd class="mono">${o.kode} · ${o.barcode}</dd><dt>Satuan</dt><dd>${esc(satuanIsi(o))}</dd><dt>Kategori</dt><dd>${esc(o.kategori)}</dd><dt>NIE</dt><dd class="mono">${nie(o)}</dd></dl>
-            <dl class="kv"><dt>Cabang</dt><dd>${esc(cabangNama(cab))}</dd><dt>Lokasi rak</dt><dd class="mono">${o.rak}</dd><dt>Stok min / maks</dt><dd>${num(o.min)} / ${num(o.min * 9)}</dd><dt>HPP / ${esc(o.satuan)}</dt><dd>${rp(o.hargaBeli)}</dd></dl>
+            <dl class="kv" style="margin:0"><dt>Kode / barcode</dt><dd class="mono">${o.kode} · ${o.barcode}</dd><dt>Satuan</dt><dd>${esc(satuanIsi(o))}</dd><dt>Kategori</dt><dd>${esc(o.kategori)}</dd><dt>NIE</dt><dd class="mono">${nie(o)}</dd></dl>
+            <dl class="kv" style="margin:0"><dt>Cabang</dt><dd>${esc(cabangNama(cab))}</dd><dt>Lokasi rak</dt><dd class="mono">${o.rak}</dd><dt>Stok min / maks</dt><dd>${num(o.min)} / ${num(o.min * 9)}</dd><dt>HPP / ${esc(o.satuan)}</dt><dd>${rp(o.hargaBeli)}</dd></dl>
           </div>`,
         })}
         <div class="grid g-2" style="gap:14px">
@@ -1149,12 +1149,12 @@
             { label: "Keterangan", render: (e) => `${badge(JENIS[e.jenis][0], JENIS[e.jenis][1])} <span class="small">${esc(e.ket)}</span>` },
             { label: "Batch", render: (e) => (e.batch ? `<span class="mono">${e.batch}</span>` : "") },
             { label: "ED", render: (e) => (e.ed ? `<span class="nowrap small">${tgl(e.ed)}</span>` : "") },
-            { label: "Masuk", cls: "num", render: (e) => (e.masuk ? `<b style="color:var(--t-green-fg)">${num(e.masuk)}</b>` : '<span class="muted">—</span>') },
-            { label: "Keluar", cls: "num", render: (e) => (e.keluar ? `<b style="color:var(--t-red-fg)">${num(e.keluar)}</b>` : '<span class="muted">—</span>') },
-            { label: "Saldo", cls: "num", render: (e) => `<b>${num(e.saldo)}</b>` },
+            { label: "Masuk", cls: "num nowrap", render: (e) => (e.masuk ? `<b style="color:var(--t-green-fg)">${num(e.masuk)}</b>` : '<span class="muted">—</span>') },
+            { label: "Keluar", cls: "num nowrap", render: (e) => (e.keluar ? `<b style="color:var(--t-red-fg)">${num(e.keluar)}</b>` : '<span class="muted">—</span>') },
+            { label: "Saldo", cls: "num nowrap", render: (e) => `<b>${num(e.saldo)}</b>` },
           ],
           rows: L, rowCls: (e) => (e.jenis === "awal" ? "group" : e.jenis === "dst" ? "row-danger" : e.jenis === "adj" ? "row-warn" : ""),
-          foot: `<tr><td colspan="5">Jumlah periode ini</td><td class="num">${num(masuk)}</td><td class="num">${num(keluar)}</td><td class="num">${num(akhir)}</td></tr>`,
+          foot: `<tr><td colspan="5">Jumlah periode ini</td><td class="num nowrap">${num(masuk)}</td><td class="num nowrap">${num(keluar)}</td><td class="num nowrap">${num(akhir)}</td></tr>`,
         }),
       })}`;
     },

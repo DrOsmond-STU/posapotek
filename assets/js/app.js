@@ -146,6 +146,7 @@
     const meta = ALL.find((i) => i.id === route) || ALL[0];
     const page = window.PAGES[route];
     const el = document.getElementById("page");
+    UI.resetCharts();
     el.innerHTML = page ? page.render({ meta, state }) : comingSoon(meta);
     page?.mount?.(el, { meta, state });
     UI.mountCharts();

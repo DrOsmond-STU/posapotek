@@ -185,22 +185,29 @@
 
   /* ---------- Charts (Chart.js) ----------
      Halaman memanggil UI.chart('id', config) di dalam render(); grafik dibuat setelah DOM terpasang. */
-  const pendingCharts = [];
+  const chartSpecs = []; // grafik milik halaman aktif (+ modal yang terbuka)
   const liveCharts = [];
   const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  const chart = (id, cfg, cls = "") => { pendingCharts.push({ id, cfg }); return `<div class="chart-box ${cls}"><canvas id="${id}" role="img" aria-label="Grafik"></canvas></div>`; };
+  const chart = (id, cfg, cls = "") => {
+    const i = chartSpecs.findIndex((c) => c.id === id);
+    if (i >= 0) chartSpecs.splice(i, 1);
+    chartSpecs.push({ id, cfg });
+    return `<div class="chart-box ${cls}"><canvas id="${id}" role="img" aria-label="Grafik"></canvas></div>`;
+  };
+  const resetCharts = () => { liveCharts.splice(0).forEach((c) => c.destroy()); chartSpecs.length = 0; };
   const colors = () => ({
     c1: cssVar("--chart-1"), c2: cssVar("--chart-2"), c3: cssVar("--chart-3"), c4: cssVar("--chart-4"), c5: cssVar("--chart-5"),
     grid: cssVar("--chart-grid"), text: cssVar("--chart-text"), surface: cssVar("--surface"),
   });
+  /* (Re)build semua grafik yang kanvasnya ada di DOM — aman dipanggil berulang (mis. saat pindah tab) */
   const mountCharts = () => {
     liveCharts.splice(0).forEach((c) => c.destroy());
-    if (!window.Chart) { pendingCharts.length = 0; return; }
+    if (!window.Chart) return;
     const k = colors();
     Chart.defaults.font.family = cssVar("--font") || "sans-serif";
     Chart.defaults.color = k.text;
     Chart.defaults.borderColor = k.grid;
-    pendingCharts.splice(0).forEach(({ id, cfg }) => {
+    chartSpecs.forEach(({ id, cfg }) => {
       const el = document.getElementById(id);
       if (!el) return;
       const c = typeof cfg === "function" ? cfg(k, el) : cfg;
@@ -219,5 +226,5 @@
   };
   const rpTick = (v) => (Math.abs(v) >= 1e9 ? (v / 1e9).toLocaleString("id-ID") + " M" : Math.abs(v) >= 1e6 ? (v / 1e6).toLocaleString("id-ID") + " jt" : v.toLocaleString("id-ID"));
 
-  window.UI = { esc, rp, num, pct, short, tgl, cabangNama, icon, btn, rowActions, badge, status, golongan, pageHeader, card, stat, table, pager, tabs, field, input, select, textarea, cabangOptions, filterBar, progress, alert, legend, modal, confirmBox, toast, chart, mountCharts, areaFill, rpTick, colors };
+  window.UI = { esc, rp, num, pct, short, tgl, cabangNama, icon, btn, rowActions, badge, status, golongan, pageHeader, card, stat, table, pager, tabs, field, input, select, textarea, cabangOptions, filterBar, progress, alert, legend, modal, confirmBox, toast, chart, mountCharts, resetCharts, areaFill, rpTick, colors };
 })();
