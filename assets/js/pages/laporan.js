@@ -465,12 +465,12 @@
     };
   });
 
-  const cabangDetail = (c) => {
+  const cabangBody = (c, K = cabangKpi()) => {
     const bulan = CAB_BULAN[c.i];
     const max = Math.max(...bulan);
-    modal.open({
-      title: esc(c.nama), icon: "store", size: "lg",
-      body: `<div class="stack">
+    const rank = [...K].sort((a, b) => b.pct - a.pct).findIndex((x) => x.id === c.id) + 1;
+    return `<div class="stack">
+        <div class="row" style="gap:8px">${badge(`Peringkat ${rank} dari ${K.length} cabang`, rank === 1 ? "amber" : "blue", { icon: "emoji_events" })}${badge(`Kontribusi ${pct(div(c.omzet, sum(K, (x) => x.omzet)) * 100)} omzet grup`, "purple")}</div>
         <div class="grid g-2">
           <dl class="kv">
             <dt>Apoteker PJ</dt><dd>${esc(c.apoteker)}</dd><dt>Kota</dt><dd>${esc(c.kota)}</dd>
@@ -500,7 +500,12 @@
           ],
           rows: bulan.map((v, m) => ({ b: BULAN[m], v, p: m ? chg(v, bulan[m - 1]) : null })).slice(-6).reverse(),
         })}
-      </div>`,
+      </div>`;
+  };
+  const cabangDetail = (c) => {
+    modal.open({
+      title: esc(c.nama), icon: "store", size: "lg",
+      body: cabangBody(c),
       foot: `${btn("Tutup", "dark", { icon: "close", attrs: "data-close" })}${btn("Unduh PDF", "danger", { icon: "picture_as_pdf", attrs: `data-toast="Rapor ${esc(c.nama)} diunduh (PDF)"` })}`,
     });
   };
@@ -513,17 +518,27 @@
       const best = rank[0];
       const tercapai = K.filter((c) => c.pct >= 100).length;
       const medal = ["workspace_premium", "military_tech", "military_tech", "emoji_events", "emoji_events"];
+      const single = state.cabang && state.cabang !== "ALL";
+      const S = single ? K.find((c) => c.id === state.cabang) : null;
+      const sRank = single ? rank.findIndex((c) => c.id === S.id) + 1 : 0;
 
       return `
-      ${header("Laporan Cabang", `Perbandingan kinerja ${CAB.length} cabang · bulan berjalan ${NAMA_BULAN[M0]} ${Y}${state.cabang !== "ALL" ? ` · cabang aktif <b>${esc(scopeName(state))}</b> ditandai` : ""}`)}
+      ${header("Laporan Cabang", single ? `Rapor <b>${esc(S.nama)}</b> dan posisinya dibanding ${CAB.length - 1} cabang lain · bulan berjalan ${NAMA_BULAN[M0]} ${Y}` : `Perbandingan kinerja ${CAB.length} cabang · bulan berjalan ${NAMA_BULAN[M0]} ${Y}`)}
       ${fbar(select("Urutkan", ["Pencapaian target", "Omzet", "Laba kotor", "Margin"]))}
 
-      <div class="grid g-4">
+      ${single ? `<div class="grid g-4">
+        ${stat({ label: `Omzet ${esc(cabShort(S.id))}`, value: short(S.omzet), icon: "payments", tone: "primary", foot: `${pct(div(S.omzet, T.omzet) * 100)} dari omzet grup`, hero: true })}
+        ${stat({ label: "Pencapaian target", value: pct(S.pct), icon: "flag", tone: S.pct >= 100 ? "success" : "warning", foot: `target ${short(S.target)} · grup ${pct(div(T.omzet, T.target) * 100)}` })}
+        ${stat({ label: "Peringkat", value: `${sRank} dari ${CAB.length}`, icon: "emoji_events", tone: "warning", foot: sRank === 1 ? "cabang terbaik bulan ini" : `terbaik: ${esc(cabShort(best.id))} (${pct(best.pct)})` })}
+        ${stat({ label: "Laba kotor", value: short(S.laba), icon: "savings", tone: "teal", foot: `margin ${pct(S.margin)} · grup ${pct(div(T.laba, T.omzet) * 100)}` })}
+      </div>
+      ${card({ title: `Rapor ${esc(S.nama)}`, desc: `Apoteker PJ ${esc(S.apoteker)} · ${esc(S.kota)}`, icon: "store", tone: "purple", body: cabangBody(S, K), tools: btn("Unduh PDF", "danger", { size: "sm", icon: "picture_as_pdf", attrs: `data-toast="Rapor ${esc(S.nama)} diunduh (PDF)"` }) })}
+      <div class="alert info">${icon("compare_arrows")}<div><b>Pembanding antar cabang</b>Grafik & tabel di bawah menampilkan semua cabang sebagai pembanding; ${esc(cabShort(S.id))} ditandai. Pilih <strong>Konsolidasi (semua cabang)</strong> untuk ringkasan grup.</div></div>` : `<div class="grid g-4">
         ${stat({ label: "Omzet seluruh cabang", value: short(T.omzet), icon: "payments", tone: "primary", delta: 5.6, foot: "vs bulan lalu", hero: true })}
         ${stat({ label: "Pencapaian target grup", value: pct(div(T.omzet, T.target) * 100), icon: "flag", tone: "success", foot: `${tercapai} dari ${CAB.length} cabang mencapai target` })}
         ${stat({ label: "Cabang terbaik", value: esc(cabShort(best.id)), icon: "emoji_events", tone: "warning", foot: `pencapaian ${pct(best.pct)}` })}
         ${stat({ label: "Laba kotor grup", value: short(T.laba), icon: "savings", tone: "teal", delta: 4.1, foot: `margin ${pct(div(T.laba, T.omzet) * 100)}` })}
-      </div>
+      </div>`}
 
       <div class="grid g-2">
         ${card({
@@ -679,10 +694,17 @@
 
   window.PAGES["lap-konsolidasi"] = {
     render({ state }) {
+      const SC = state.cabang || "ALL";
+      const single = SC !== "ALL";
+      const ci = cabIdx(SC);
       const P = { bulan: lrKons(1), kuartal: lrKons(3), tahun: lrKons(12) };
-      const K = P.bulan.kons;
+      const K = single ? P.bulan.cols[ci] : P.bulan.kons;
       const N = neraca();
-      const AK = GL.arusKas("ALL");
+      const NK = single ? N.cols[ci] : N.kons;
+      // per cabang: satu kolom cabang (sebelum konsolidasi); semua cabang: kolom cabang + eliminasi + konsolidasi
+      const heads = single ? [`<span title="${esc(UI.cabangNama(SC))}">${esc(cabShort(SC))}</span>`] : konsHeads;
+      const colsOf = (x) => (single ? [x.cols[ci]] : [...x.cols, x.elim, x.kons]);
+      const AK = GL.arusKas(SC);
       const ak = [
         { g: "Arus kas dari aktivitas operasi" },
         { k: "terima", l: "Penerimaan dari pelanggan (tunai, settlement kartu/QRIS, B2B, BPJS)" },
@@ -705,20 +727,19 @@
         { k: "akhir", l: "Kas & bank akhir periode", foot: 1 },
       ];
       const akv = AK;
-      const tren = BULAN.map((bl, i) => { const o = GL.labaRugi("ALL", 1, i - LAST); return { bulan: bl, pendapatan: o.bersih, hpp: o.hpp, biaya: o.beban, laba: o.lo }; });
+      const tren = BULAN.map((bl, i) => { const o = GL.labaRugi(SC, 1, i - LAST); return { bulan: bl, pendapatan: o.bersih, hpp: o.hpp, biaya: o.beban, laba: o.lo }; });
       const trenT = { p: sum(tren, (b) => b.pendapatan), h: sum(tren, (b) => b.hpp), b: sum(tren, (b) => b.biaya), l: sum(tren, (b) => b.laba) };
 
       return `
-      ${header("Laporan Konsolidasi", `${esc(DB.apotek.badanUsaha)} · gabungan ${CAB.length} cabang · periode ${NAMA_BULAN[M0]} ${Y}`)}
-      ${alert("info", "account_tree", "Tentang konsolidasi", ` Laporan ini menggabungkan laporan keuangan seluruh cabang lalu mengeliminasi transaksi internal. <strong>Mutasi stok antar cabang</strong> dicatat cabang pengirim sebagai penjualan internal pada harga pokok, sehingga penjualan dan HPP internal (${short(P.bulan.internal)} bulan ini) dieliminasi tanpa memengaruhi laba. <strong>Piutang/hutang antar cabang</strong> juga saling hapus di posisi keuangan.`)}
-      ${state.cabang !== "ALL" ? alert("warn", "info", "Cabang aktif diabaikan", ` Laporan konsolidasi selalu mencakup semua cabang, meskipun cabang aktif saat ini ${esc(scopeName(state))}.`) : ""}
+      ${header(single ? "Laporan Keuangan Cabang" : "Laporan Konsolidasi", single ? `${esc(UI.cabangNama(SC))} · laporan keuangan cabang sebelum konsolidasi · periode ${NAMA_BULAN[M0]} ${Y}` : `${esc(DB.apotek.badanUsaha)} · gabungan ${CAB.length} cabang · periode ${NAMA_BULAN[M0]} ${Y}`)}
+      ${single ? alert("info", "store", `Laporan per cabang: ${esc(UI.cabangNama(SC))}`, ` Laba rugi, posisi keuangan, arus kas & tren di bawah hanya untuk cabang ini, termasuk transaksi dengan cabang lain (penjualan internal ${short(K.internal)}, piutang antar cabang ${short(NK.piutangAC)}, hutang antar cabang ${short(NK.hutangAC)}). Pilih <strong>Konsolidasi (semua cabang)</strong> untuk melihat laporan gabungan setelah eliminasi.`) : alert("info", "account_tree", "Tentang konsolidasi", ` Laporan ini menggabungkan laporan keuangan seluruh cabang lalu mengeliminasi transaksi internal. <strong>Mutasi stok antar cabang</strong> dicatat cabang pengirim sebagai penjualan internal pada harga pokok, sehingga penjualan dan HPP internal (${short(P.bulan.internal)} bulan ini) dieliminasi tanpa memengaruhi laba. <strong>Piutang/hutang antar cabang</strong> juga saling hapus di posisi keuangan.`)}
       ${fbar(`${select("Periode", ["Bulanan", "Kuartal", "Tahunan"])}${select("Satuan", ["Ribuan rupiah", "Rupiah penuh", "Jutaan rupiah"])}`)}
 
       <div class="grid g-4">
-        ${stat({ label: "Penjualan bersih konsolidasi", value: short(K.bersih), icon: "payments", tone: "primary", delta: 5.6, foot: "setelah eliminasi", hero: true })}
+        ${stat({ label: single ? "Penjualan bersih cabang" : "Penjualan bersih konsolidasi", value: short(K.bersih), icon: "payments", tone: "primary", foot: single ? "termasuk penjualan internal" : "setelah eliminasi · s.d. hari ini", hero: true })}
         ${stat({ label: "Laba kotor", value: short(K.lk), icon: "savings", tone: "teal", foot: `margin ${pct(div(K.lk, K.bersih) * 100)}` })}
-        ${stat({ label: "Laba bersih", value: short(K.lb), icon: "account_balance", tone: "success", delta: 3.8, foot: `margin bersih ${pct(div(K.lb, K.bersih) * 100)}` })}
-        ${stat({ label: "Eliminasi antar cabang", value: short(P.bulan.internal), icon: "swap_horiz", tone: "purple", foot: `${DB.mutasi.length} mutasi terakhir · ${short(sum(DB.mutasi, (m) => m.nilai))}` })}
+        ${stat({ label: "Laba bersih", value: short(K.lb), icon: "account_balance", tone: "success", foot: `margin bersih ${pct(div(K.lb, K.bersih) * 100)}` })}
+        ${single ? stat({ label: "Transaksi antar cabang", value: short(K.internal), icon: "swap_horiz", tone: "purple", foot: "penjualan internal (dieliminasi saat konsolidasi)" }) : stat({ label: "Eliminasi antar cabang", value: short(P.bulan.internal), icon: "swap_horiz", tone: "purple", foot: `${DB.mutasi.length} mutasi terakhir · ${short(sum(DB.mutasi, (m) => m.nilai))}` })}
       </div>
 
       ${tabs("lks", [
@@ -727,23 +748,23 @@
       ], "lr")}
 
       ${panel("lks", "lr", card({
-        title: "Laba rugi konsolidasi", desc: "Kolom per cabang, eliminasi transaksi internal, dan hasil konsolidasi", icon: "balance",
+        title: single ? `Laba rugi ${esc(cabShort(SC))}` : "Laba rugi konsolidasi", desc: single ? "Laporan cabang sebelum eliminasi antar cabang" : "Kolom per cabang, eliminasi transaksi internal, dan hasil konsolidasi", icon: "balance",
         tools: tabs("lks-per", [{ id: "bulan", label: "Bulanan" }, { id: "kuartal", label: "Kuartal" }, { id: "tahun", label: "Tahunan" }], "bulan"),
         flush: true,
-        body: ["bulan", "kuartal", "tahun"].map((p, i) => panel("lks-per", p, stmt(LR_DEF, konsHeads, [...P[p].cols, P[p].elim, P[p].kons]), i === 0)).join(""),
+        body: ["bulan", "kuartal", "tahun"].map((p, i) => panel("lks-per", p, stmt(LR_DEF, heads, colsOf(P[p])), i === 0)).join(""),
         foot: `<span class="small muted">${icon("info")} Pajak memakai PPh Badan tarif umum 22% (peredaran bruto grup di atas Rp 50 M/tahun, sehingga PPh final 0,5% UMKM dan fasilitas Pasal 31E tidak berlaku). Angka estimasi sebelum koreksi fiskal.</span>`,
       }), true)}
 
       ${panel("lks", "neraca", `
         <div class="grid g-4">
-          ${stat({ label: "Total aset", value: short(N.kons.aset), icon: "account_balance", tone: "primary" })}
-          ${stat({ label: "Rasio lancar", value: dec1(div(N.kons.al, N.kons.liab)) + "×", icon: "water_drop", tone: "success", foot: "aset lancar / liabilitas" })}
-          ${stat({ label: "Persediaan thd aset", value: pct(div(N.kons.persediaan, N.kons.aset) * 100), icon: "warehouse", tone: "info" })}
-          ${stat({ label: "Rasio utang thd ekuitas", value: dec1(div(N.kons.liab, N.kons.ekuitas)) + "×", icon: "scale", tone: "warning" })}
+          ${stat({ label: "Total aset", value: short(NK.aset), icon: "account_balance", tone: "primary" })}
+          ${stat({ label: "Rasio lancar", value: dec1(div(NK.al, NK.liab)) + "×", icon: "water_drop", tone: "success", foot: "aset lancar / liabilitas" })}
+          ${stat({ label: "Persediaan thd aset", value: pct(div(NK.persediaan, NK.aset) * 100), icon: "warehouse", tone: "info" })}
+          ${stat({ label: "Rasio utang thd ekuitas", value: dec1(div(NK.liab, NK.ekuitas)) + "×", icon: "scale", tone: "warning" })}
         </div>
         ${card({
-          title: "Posisi keuangan ringkas", desc: `Per ${tgl(DB.TODAY)} · piutang & hutang antar cabang dieliminasi`, icon: "account_balance", flush: true,
-          body: stmt(NERACA_DEF, konsHeads, [...N.cols, N.elim, N.kons]),
+          title: "Posisi keuangan ringkas", desc: single ? `Per ${tgl(DB.TODAY)} · ${esc(UI.cabangNama(SC))}` : `Per ${tgl(DB.TODAY)} · piutang & hutang antar cabang dieliminasi`, icon: "account_balance", flush: true,
+          body: stmt(NERACA_DEF, heads, colsOf(N)),
         })}`)}
 
       ${panel("lks", "aruskas", `
@@ -753,14 +774,14 @@
           ${stat({ label: "Arus kas pendanaan", value: short(akv.dana), icon: "account_balance", tone: "purple" })}
         </div>
         ${card({
-          title: "Laporan arus kas ringkas (konsolidasi)", desc: `Bulan ${NAMA_BULAN[M0]} ${Y} · metode langsung`, icon: "currency_exchange", flush: true,
-          body: stmt(ak.map((d) => ({ ...d, neg: 0 })), ["Konsolidasi"], [akv]),
+          title: single ? `Laporan arus kas ringkas (${esc(cabShort(SC))})` : "Laporan arus kas ringkas (konsolidasi)", desc: `Bulan ${NAMA_BULAN[M0]} ${Y} · metode langsung`, icon: "currency_exchange", flush: true,
+          body: stmt(ak.map((d) => ({ ...d, neg: 0 })), [single ? esc(cabShort(SC)) : "Konsolidasi"], [akv]),
         })}`)}
 
       ${panel("lks", "tren", `
         <div class="grid g-2">
           ${card({
-            title: "Komposisi pendapatan 12 bulan", desc: "Tinggi batang = pendapatan bersih konsolidasi (HPP + beban + laba)", icon: "stacked_bar_chart",
+            title: "Komposisi pendapatan 12 bulan", desc: `Tinggi batang = pendapatan bersih ${single ? esc(cabShort(SC)) : "konsolidasi"} (HPP + beban + laba)`, icon: "stacked_bar_chart",
             body: `${legend([["HPP", "var(--chart-1)"], ["Beban usaha", "var(--chart-2)"], ["Laba operasional", "var(--chart-3)"]])}
               ${chart("lks-ch-komposisi", (k) => ({
                 type: "bar",

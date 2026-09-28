@@ -65,6 +65,10 @@
   ];
   const ALL = NAV.flatMap((g) => g.items.map((i) => ({ ...i, group: g.group })));
 
+  // Halaman laporan/keuangan yang mengikuti lingkup cabang (per cabang / konsolidasi)
+  const SCOPED = new Set(["dashboard", "riwayat", "stok", "kadaluarsa", "hutang", "coa", "jurnal", "bukubesar", "neracasaldo", "lap-labarugi", "neraca",
+    "lap-penjualan", "lap-cabang", "lap-konsolidasi", "lap-sales", "lap-stok", "lap-pembelian", "lap-kadaluarsa", "lap-narkotika"]);
+
   const state = { route: "dashboard", cabang: "PST", user: { nama: "Rina Wulandari", role: "Apoteker PJ", init: "RW" } };
 
   const readTheme = () => { try { return localStorage.getItem("fk-theme"); } catch (e) { return null; } };
@@ -158,6 +162,8 @@
     prev.replaceWith(el);
     UI.resetCharts();
     el.innerHTML = page ? page.render({ meta, state }) : comingSoon(meta);
+    // Semua laporan bisa dilihat per cabang atau konsolidasi: sisipkan pemilih lingkup di bawah judul
+    if (SCOPED.has(route) && !el.querySelector(".scope-bar")) el.querySelector(".page-head")?.insertAdjacentHTML("afterend", UI.scopeBar(state.cabang));
     page?.mount?.(el, { meta, state });
     UI.mountCharts();
     document.getElementById("app-shell").classList.remove("nav-open");
@@ -197,6 +203,9 @@
 
   /* ---------- Delegasi event global ---------- */
   document.addEventListener("click", (e) => {
+    const scEl = e.target.closest("[data-scope]");
+    if (scEl) { setScope(scEl.dataset.scope); return; }
+
     const goEl = e.target.closest("[data-go]");
     if (goEl) { e.preventDefault(); modal.close(); go(goEl.dataset.go); return; }
 
@@ -228,13 +237,18 @@
     if (shell && shell.classList.contains("nav-open") && !e.target.closest(".sidebar") && !e.target.closest("#menu-btn")) shell.classList.remove("nav-open");
   });
 
+  function setScope(v) {
+    if (!v || v === state.cabang) return;
+    state.cabang = v;
+    const y = window.scrollY;
+    toast(v === "ALL" ? "Lingkup: konsolidasi semua cabang" : `Lingkup: ${UI.cabangNama(v)}`, "info");
+    document.getElementById("root").innerHTML = "";
+    renderRoute();
+    window.scrollTo(0, y);
+  }
+
   document.addEventListener("change", (e) => {
-    if (e.target.id === "branch-select") {
-      state.cabang = e.target.value;
-      toast(`Cabang aktif: ${e.target.selectedOptions[0].text}`, "info");
-      document.getElementById("root").innerHTML = "";
-      renderRoute();
-    }
+    if (e.target.id === "branch-select" || e.target.matches("[data-scope-cabang]")) setScope(e.target.value);
   });
 
   document.addEventListener("keydown", (e) => {

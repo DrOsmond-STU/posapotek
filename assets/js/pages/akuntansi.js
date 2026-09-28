@@ -378,7 +378,7 @@
       ${integrasi("bukubesar")}
       <section class="card"><div class="filterbar" style="border-radius:var(--radius-lg)">
         <div class="field" style="max-width:none;flex:3 1 320px"><label for="bb-akun">Akun</label><select id="bb-akun" class="select">${akunOptions(a.kode)}</select></div>
-        ${select("Cabang", UI.cabangOptions(), { value: cab, id: "bb-cab" })}
+        ${select("Cabang", UI.cabangOptions(), { value: cab, id: "bb-cab", attrs: "data-scope-cabang" })}
         <div class="actions">
           ${btn("", "dark", { icon: "chevron_left", title: "Akun sebelumnya", attrs: prev ? `${toLedger(prev.kode)}` : "disabled" })}
           ${btn("", "dark", { icon: "chevron_right", title: "Akun berikutnya", attrs: next ? `${toLedger(next.kode)}` : "disabled" })}
@@ -430,11 +430,6 @@
     mount(root, { state }) {
       bindLedgerLinks(root);
       root.querySelector("#bb-akun").addEventListener("change", (e) => { GL.ui.akun = e.target.value; APP.render(); });
-      root.querySelector("#bb-cab").addEventListener("change", (e) => {
-        APP.state.cabang = e.target.value;
-        const bs = document.getElementById("branch-select"); if (bs) bs.value = e.target.value;
-        APP.render();
-      });
       root.querySelectorAll("[data-jv]").forEach((b) => b.addEventListener("click", () => jurnalDetail(b.dataset.jv, state)));
     },
   };

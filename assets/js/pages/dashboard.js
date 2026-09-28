@@ -5,24 +5,32 @@
 
   window.PAGES.dashboard = {
     render({ state }) {
-      const h = DB.harian;
+      // Lingkup: konsolidasi (semua cabang) atau per cabang → angka diskalakan dengan porsi omzet cabang
+      const ALL = state.cabang === "ALL";
+      const totOmzet = DB.cabang.reduce((a, c) => a + c.omzet, 0);
+      const f = ALL ? 1 : DB.cabang.find((c) => c.id === state.cabang).omzet / totOmzet;
+      const cabs = ALL ? DB.cabang.map((c) => c.id) : [state.cabang];
+      const h = DB.harian.map((d) => ({ ...d, umum: Math.round(d.umum * f), resep: Math.round(d.resep * f), total: Math.round(d.total * f), trx: Math.round(d.trx * f) }));
       const today = h[h.length - 1];
       const yday = h[h.length - 2];
+      const lr = GL.labaRugi(state.cabang);
+      const nr = GL.neraca(state.cabang);
       const dlt = ((today.total - yday.total) / yday.total) * 100;
       const cab = state.cabang === "ALL" ? "Semua Cabang" : UI.cabangNama(state.cabang);
-      const low = DB.obat.filter((o) => (o.stok[state.cabang === "ALL" ? "PST" : state.cabang] || 0) < o.min);
-      const expired = DB.batches.filter((b) => b.sisaHari < 0);
-      const near = DB.batches.filter((b) => b.sisaHari >= 0 && b.sisaHari <= 90);
+      const low = DB.obat.filter((o) => cabs.some((c) => (o.stok[c] || 0) < o.min));
+      const expired = DB.batches.filter((b) => b.sisaHari < 0 && cabs.includes(b.cabang));
+      const near = DB.batches.filter((b) => b.sisaHari >= 0 && b.sisaHari <= 90 && cabs.includes(b.cabang));
       const top = [
         ["Paracetamol 500 mg", 1840, 10120000], ["Amoxicillin 500 mg", 1210, 10285000], ["Vitamin C 1000 mg", 612, 27540000],
         ["OBH Combi Batuk Flu", 598, 11661000], ["Amlodipine 10 mg", 544, 4624000], ["Omeprazole 20 mg", 489, 5134500],
       ];
+      top.forEach((t) => { t[1] = Math.max(1, Math.round(t[1] * f)); t[2] = Math.round(t[2] * f); });
       const maxTop = Math.max(...top.map((t) => t[1]));
 
       return `
       ${UI.pageHeader({
         title: `Selamat pagi, apt. ${state.user.nama.split(" ")[0]}`,
-        sub: `Ringkasan operasional <b>${esc(cab)}</b> hari ini, ${tgl(DB.TODAY)}. Data diperbarui otomatis setiap 5 menit.`,
+        sub: `Ringkasan operasional <b>${esc(ALL ? "semua cabang (konsolidasi)" : cab)}</b> hari ini, ${tgl(DB.TODAY)}. Data diperbarui otomatis setiap 5 menit.`,
         crumbs: ["Dashboard"],
         actions: `${btn("Buka Kasir", "success", { icon: "point_of_sale", attrs: 'data-go="kasir"' })}${btn("Input Resep", "white", { icon: "prescriptions", attrs: 'data-go="resep"' })}${btn("Unduh Ringkasan", "glass", { icon: "download", attrs: 'data-toast="Ringkasan harian diunduh (PDF)"' })}`,
       })}
@@ -30,8 +38,8 @@
       <div class="grid g-4">
         ${stat({ label: "Penjualan hari ini", value: short(today.total), icon: "payments", tone: "primary", delta: dlt, foot: "vs kemarin", hero: true })}
         ${stat({ label: "Jumlah transaksi", value: num(today.trx), icon: "receipt_long", tone: "success", delta: 4.2, foot: `rata-rata ${rp(today.total / today.trx)}` })}
-        ${stat({ label: "Resep dilayani", value: "186", icon: "prescriptions", tone: "purple", delta: 7.8, foot: "24 racikan · 5 iter" })}
-        ${stat({ label: "Laba kotor (est.)", value: short(today.total * 0.31), icon: "savings", tone: "teal", delta: 2.1, foot: "margin 31,0%" })}
+        ${stat({ label: "Resep dilayani", value: num(Math.round(186 * f)), icon: "prescriptions", tone: "purple", delta: 7.8, foot: `${Math.round(24 * f)} racikan · ${Math.max(1, Math.round(5 * f))} iter` })}
+        ${stat({ label: "Laba kotor bulan ini", value: short(lr.lk), icon: "savings", tone: "teal", foot: `margin ${UI.pct(lr.lk / lr.bersih * 100)} · dari jurnal` })}
       </div>
 
       <div class="grid g-4">
@@ -48,8 +56,8 @@
           <div class="value">${near.length} batch</div><div class="foot">${badge("Pantau", "pink", { dot: true })} prioritaskan FEFO</div>
         </button>
         <button type="button" class="stat" data-go="hutang" style="text-align:left;cursor:pointer">
-          <div class="top"><span class="label">Hutang jatuh tempo 7 hari</span><span class="ico tone-info">${icon("request_quote")}</span></div>
-          <div class="value">${short(64350000)}</div><div class="foot">${badge("3 faktur", "cyan", { dot: true })} ke 2 PBF</div>
+          <div class="top"><span class="label">Hutang usaha ke PBF</span><span class="ico tone-info">${icon("request_quote")}</span></div>
+          <div class="value">${short(nr.hutang)}</div><div class="foot">${badge(`${short(nr.hutang * 0.106)} jatuh tempo 7 hari`, "cyan", { dot: true })}</div>
         </button>
       </div>
 
@@ -95,11 +103,11 @@
             <div class="stack" style="gap:6px"><div class="row between"><span class="strong small">${i + 1}. ${esc(n)}</span><span class="small muted num">${num(q)} unit</span></div>${progress(q, maxTop, i === 0 ? "" : "green")}</div>`).join("")}</div>`,
         })}
         ${card({
-          title: "Performa cabang", desc: "Omzet bulan berjalan vs target", icon: "store", tone: "purple",
+          title: "Performa cabang", desc: ALL ? "Omzet bulan berjalan vs target" : "Cabang aktif ditandai · pembanding semua cabang", icon: "store", tone: "purple",
           tools: btn("Detail", "info", { size: "sm", icon: "arrow_forward", attrs: 'data-go="lap-cabang"' }),
           body: `<div class="stack">${DB.cabang.map((c) => {
             const p = (c.omzet / c.target) * 100;
-            return `<div class="stack" style="gap:6px"><div class="row between"><span class="strong small">${esc(c.nama.replace("Cabang ", ""))}</span><span class="small num ${p >= 100 ? "" : "muted"}">${UI.pct(p)}</span></div>${progress(c.omzet, c.target, p >= 100 ? "green" : p >= 90 ? "" : "amber")}<div class="small muted num">${short(c.omzet)} / ${short(c.target)}</div></div>`;
+            return `<div class="stack" style="gap:6px"><div class="row between"><span class="strong small">${esc(c.nama.replace("Cabang ", ""))} ${c.id === state.cabang ? badge("Aktif", "green") : ""}</span><span class="small num ${p >= 100 ? "" : "muted"}">${UI.pct(p)}</span></div>${progress(c.omzet, c.target, p >= 100 ? "green" : p >= 90 ? "" : "amber")}<div class="small muted num">${short(c.omzet)} / ${short(c.target)}</div></div>`;
           }).join("")}</div>`,
         })}
         ${card({
@@ -112,11 +120,11 @@
 
       <div class="grid g-2-1">
         ${card({
-          title: "Transaksi terbaru", desc: "Cabang Pusat · hari ini", icon: "receipt_long", flush: true,
+          title: "Transaksi terbaru", desc: `${esc(ALL ? "Semua cabang" : cab)} · hari ini`, icon: "receipt_long", flush: true,
           tools: btn("Semua transaksi", "primary", { size: "sm", icon: "list", attrs: 'data-go="riwayat"' }),
           body: table({
             columns: [
-              { label: "No. Invoice", render: (r) => `<span class="mono strong">${r.no.split("/").pop()}</span><div class="t-sub">${r.waktu} · ${esc(r.kasir)}</div>` },
+              { label: "No. Invoice", render: (r, i) => `<span class="mono strong">${ALL ? cabs[i % cabs.length] : state.cabang}/${r.no.split("/").pop()}</span><div class="t-sub">${r.waktu} · ${esc(r.kasir)}</div>` },
               { label: "Pelanggan", render: (r) => `${esc(r.pelanggan)}<div class="t-sub">${badge(r.jenis, { Resep: "blue", Racikan: "purple", Bebas: "gray", B2B: "teal" }[r.jenis])}</div>` },
               { label: "Bayar", key: "bayar" },
               { label: "Total", cls: "num", render: (r) => `<b>${rp(r.total)}</b>` },

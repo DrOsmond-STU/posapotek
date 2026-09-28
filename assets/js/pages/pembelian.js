@@ -101,7 +101,8 @@
       const umur = AGE[k][0] + ((si * 7 + k * 5) % (AGE[k][1] - AGE[k][0]));
       const dibayar = (si + k) % 3 === 1 ? Math.round((sisa * 0.4) / 1000) * 1000 : 0;
       const code = ["KFTD", "APL", "EPM", "PPG", "BSP"][si];
-      return { no: `${code}/INV/${YM}/${String(4120 + si * 173 + k * 29).padStart(5, "0")}`, sup: s, tgl: -umur, jt: s.top - umur, umur, nilai: sisa + dibayar, dibayar, sisa, sp: `SP/PST/${YM}/0${String(10 + si * 3 + k).padStart(2, "0")}` };
+      const cab = DB.cabang[(si + k) % DB.cabang.length].id;
+      return { no: `${code}/INV/${YM}/${String(4120 + si * 173 + k * 29).padStart(5, "0")}`, sup: s, cab, tgl: -umur, jt: s.top - umur, umur, nilai: sisa + dibayar, dibayar, sisa, sp: `SP/${cab}/${YM}/0${String(10 + si * 3 + k).padStart(2, "0")}` };
     });
   });
   const agingOf = (u) => (u <= 30 ? 0 : u <= 60 ? 1 : u <= 90 ? 2 : 3);
@@ -662,17 +663,19 @@
   }
 
   window.PAGES.hutang = {
-    render() {
-      const total = FAKTUR.reduce((s, f) => s + f.sisa, 0);
-      const minggu = FAKTUR.filter((f) => f.jt >= 0 && f.jt <= 7);
-      const lewat = FAKTUR.filter((f) => f.jt < 0);
+    render({ state }) {
+      const ALLC = !state.cabang || state.cabang === "ALL";
+      const F = ALLC ? FAKTUR : FAKTUR.filter((f) => f.cab === state.cabang);
+      const total = F.reduce((s, f) => s + f.sisa, 0);
+      const minggu = F.filter((f) => f.jt >= 0 && f.jt <= 7);
+      const lewat = F.filter((f) => f.jt < 0);
       const dibayar = BAYAR.reduce((s, b) => s + b[5], 0);
-      const aging = DB.supplier.map((s) => { const a = [0, 0, 0, 0]; FAKTUR.filter((f) => f.sup === s).forEach((f) => { a[agingOf(f.umur)] += f.sisa; }); return { s, a, t: a.reduce((x, y) => x + y, 0) }; });
+      const aging = DB.supplier.map((s) => { const a = [0, 0, 0, 0]; F.filter((f) => f.sup === s).forEach((f) => { a[agingOf(f.umur)] += f.sisa; }); return { s, a, t: a.reduce((x, y) => x + y, 0) }; });
       const tot = [0, 1, 2, 3].map((k) => aging.reduce((s, r) => s + r.a[k], 0));
-      const byJt = FAKTUR.slice().sort((a, b) => a.jt - b.jt);
+      const byJt = F.slice().sort((a, b) => a.jt - b.jt);
       const fcols = [
         { label: "No. faktur", render: (f) => `<span class="mono strong">${f.no}</span><div class="t-sub mono">${f.sp}</div>` },
-        { label: "Supplier", render: (f) => esc(supShort(f.sup.nama)) },
+        { label: "Supplier", render: (f) => `${esc(supShort(f.sup.nama))}<div class="t-sub">${badge(f.cab, "gray")}</div>` },
         { label: "Tgl faktur", render: (f) => `<span class="nowrap">${tgl(dIso(f.tgl))}</span><div class="t-sub">umur ${f.umur} hari</div>` },
         { label: "Jatuh tempo", render: (f) => `<span class="nowrap">${tgl(dIso(f.jt))}</span><div class="t-sub">${jtBadge(f.jt)}</div>` },
         { label: "Nilai faktur", cls: "num nowrap", render: (f) => `${rp(f.nilai)}${f.dibayar ? `<div class="t-sub">dibayar ${rp(f.dibayar)}</div>` : ""}` },
@@ -683,13 +686,13 @@
       return `
       ${UI.pageHeader({
         title: "Hutang Supplier",
-        sub: "Pemantauan hutang dagang ke PBF: umur hutang, jatuh tempo, pembayaran, dan potongan nota retur.",
+        sub: `Pemantauan hutang dagang ke PBF ${ALLC ? "seluruh cabang (konsolidasi)" : "<b>" + esc(UI.cabangNama(state.cabang)) + "</b>"}: umur hutang, jatuh tempo, pembayaran, dan potongan nota retur.`,
         crumbs: ["Pembelian", "Hutang Supplier"],
         actions: `${btn("Jadwal Pembayaran", "white", { icon: "event", attrs: 'data-toast="Jadwal pembayaran minggu ini dikirim ke Keuangan" data-tone="info"' })}${btn("Excel", "teal", { icon: "table_view", attrs: 'data-toast="Kartu hutang diekspor ke Excel (.xlsx)"' })}`,
       })}
 
       <div class="grid g-4">
-        ${stat({ label: "Total hutang", value: short(total), icon: "account_balance", tone: "primary", hero: true, foot: `${FAKTUR.length} faktur · ${DB.supplier.length} PBF` })}
+        ${stat({ label: "Total hutang", value: short(total), icon: "account_balance", tone: "primary", hero: true, foot: `${F.length} faktur · ${DB.supplier.length} PBF` })}
         ${stat({ label: "Jatuh tempo ≤ 7 hari", value: short(minggu.reduce((s, f) => s + f.sisa, 0)), icon: "alarm", tone: "warning", foot: `${minggu.length} faktur perlu dijadwalkan` })}
         ${stat({ label: "Lewat jatuh tempo", value: short(lewat.reduce((s, f) => s + f.sisa, 0)), icon: "error", tone: "danger", foot: `${lewat.length} faktur · risiko stop suplai` })}
         ${stat({ label: "Dibayar bulan ini", value: short(dibayar), icon: "task_alt", tone: "success", foot: `${BAYAR.length} pembayaran` })}
@@ -721,7 +724,7 @@
 
       ${card({
         title: "Faktur belum lunas", desc: "Urut jatuh tempo terdekat", icon: "receipt_long", flush: true,
-        body: `<div style="padding:14px 20px 0">${tabs("hut-tab", [{ id: "semua", label: "Semua", n: FAKTUR.length }, { id: "lewat", label: "Lewat jatuh tempo", icon: "error", n: lewat.length }, { id: "minggu", label: "≤ 7 hari", icon: "alarm", n: minggu.length }], "semua")}</div>
+        body: `<div style="padding:14px 20px 0">${tabs("hut-tab", [{ id: "semua", label: "Semua", n: F.length }, { id: "lewat", label: "Lewat jatuh tempo", icon: "error", n: lewat.length }, { id: "minggu", label: "≤ 7 hari", icon: "alarm", n: minggu.length }], "semua")}</div>
           ${[["semua", byJt], ["lewat", byJt.filter((f) => f.jt < 0)], ["minggu", byJt.filter((f) => f.jt >= 0 && f.jt <= 7)]].map(([id, rows]) => `<div data-panel-group="hut-tab" data-panel="${id}" style="margin-top:12px" ${id === "semua" ? "" : "hidden"}>${table({ columns: fcols, rows, rowCls: (f) => (f.jt < 0 ? "row-danger" : f.jt <= 7 ? "row-warn" : ""), empty: "Tidak ada faktur" })}</div>`).join("")}`,
       })}
 

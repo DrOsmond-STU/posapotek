@@ -124,12 +124,20 @@
   };
 
   /* Filter bar standar laporan: periode + cabang + tombol */
-  const cabangOptions = (withAll = true) => [...(withAll ? [{ v: "ALL", l: "Semua Cabang" }] : []), ...window.DB.cabang.map((c) => ({ v: c.id, l: c.nama }))];
+  const cabangOptions = (withAll = true) => [...(withAll ? [{ v: "ALL", l: "Semua Cabang (Konsolidasi)" }] : []), ...window.DB.cabang.map((c) => ({ v: c.id, l: c.nama }))];
+  /* Pemilih lingkup laporan: konsolidasi (semua cabang) atau per cabang. Ditangani global di app.js ([data-scope]). */
+  const scopeBar = (active = "ALL") => `
+    <div class="scope-bar" role="group" aria-label="Lingkup laporan">
+      <span class="scope-lbl">${icon("filter_center_focus")}Lingkup laporan</span>
+      <button type="button" class="chip ${active === "ALL" ? "active" : ""}" data-scope="ALL" aria-pressed="${active === "ALL"}">${icon("hub")}Konsolidasi (semua cabang)</button>
+      <span class="scope-sep" aria-hidden="true"></span>
+      ${window.DB.cabang.map((c) => `<button type="button" class="chip ${active === c.id ? "active" : ""}" data-scope="${c.id}" aria-pressed="${active === c.id}" title="${esc(c.nama)}">${icon("storefront")}${esc(c.nama.replace(/^Cabang\s+/, ""))}</button>`).join("")}
+    </div>`;
   const filterBar = (extra = "", actions = null) => `
     <div class="filterbar">
       ${input("Dari tanggal", { type: "date", value: window.DB.iso(window.DB.addDays(-29)) })}
       ${input("Sampai tanggal", { type: "date", value: window.DB.iso(window.DB.TODAY) })}
-      ${select("Cabang", cabangOptions(), { value: window.APP?.state.cabang || "ALL" })}
+      ${select("Cabang", cabangOptions(), { value: window.APP?.state.cabang || "ALL", attrs: 'data-scope-cabang aria-describedby="scope-hint"' })}
       ${extra}
       <div class="actions">${actions ?? `${btn("Tampilkan", "primary", { icon: "filter_alt", attrs: 'data-toast="Filter diterapkan"' })}${btn("Excel", "teal", { icon: "table_view", attrs: 'data-toast="Laporan diekspor ke Excel (.xlsx)"' })}${btn("PDF", "danger", { icon: "picture_as_pdf", attrs: 'data-toast="Laporan diekspor ke PDF"' })}`}</div>
     </div>`;
@@ -226,5 +234,5 @@
   };
   const rpTick = (v) => (Math.abs(v) >= 1e9 ? (v / 1e9).toLocaleString("id-ID") + " M" : Math.abs(v) >= 1e6 ? (v / 1e6).toLocaleString("id-ID") + " jt" : v.toLocaleString("id-ID"));
 
-  window.UI = { esc, rp, num, pct, short, tgl, cabangNama, icon, btn, rowActions, badge, status, golongan, pageHeader, card, stat, table, pager, tabs, field, input, select, textarea, cabangOptions, filterBar, progress, alert, legend, modal, confirmBox, toast, chart, mountCharts, resetCharts, areaFill, rpTick, colors };
+  window.UI = { esc, rp, num, pct, short, tgl, cabangNama, icon, btn, rowActions, badge, status, golongan, pageHeader, card, stat, table, pager, tabs, field, input, select, textarea, cabangOptions, scopeBar, filterBar, progress, alert, legend, modal, confirmBox, toast, chart, mountCharts, resetCharts, areaFill, rpTick, colors };
 })();

@@ -904,6 +904,17 @@
     { no: "INV/PST/2609/0399", waktu: "08:47", pelanggan: "Umum", jenis: "Bebas", item: 1, total: 395000, bayar: "Debit Mandiri", kasir: "Fikri R.", status: "Lunas" },
     { no: "INV/PST/2609/0398", waktu: "08:32", pelanggan: "Umum", jenis: "Racikan", item: 2, total: 88000, bayar: "Tunai", kasir: "Nabila P.", status: "Lunas" },
   ];
+  // Transaksi cabang lain (pola sama, nomor invoice & kasir cabang masing-masing) untuk riwayat per cabang / konsolidasi
+  const KASIR_CAB = { BKS: ["Galih S.", "Putri H."], DPK: ["Rizky F.", "Ayu L."], TGR: ["Intan P.", "Dodi S."], BGR: ["Wulan S.", "Hana R."] };
+  const TRX_ALL = [
+    ...TRX,
+    ...DB.cabang.filter((c) => c.id !== "PST").flatMap((c, ci) => TRX.filter((t, i) => (i + ci) % 3 !== 0 && t.jenis !== "B2B").map((t, i) => ({
+      ...t, no: t.no.replace("/PST/", `/${c.id}/`), kasir: KASIR_CAB[c.id][i % 2],
+      waktu: `${String(Math.min(22, +t.waktu.slice(0, 2) + ci)).padStart(2, "0")}:${t.waktu.slice(3)}`,
+    }))),
+  ];
+  let RW = TRX_ALL;
+
   // [kode, qty, harga satuan, unit]  — "RACIK" = racikan resep
   const TRX_ITEMS = {
     "0412": [["OB0017", 10, 940, "tab"], ["OB0019", 20, 830, "tab"], ["OB0021", 60, 610, "tab"], ["OB0020", 70, 2970, "tab"]],
@@ -1028,32 +1039,34 @@
   };
 
   window.PAGES.riwayat = {
-    render() {
-      const ok = TRX.filter((t) => t.status !== "Void");
+    render({ state }) {
+      const ALLC = !state.cabang || state.cabang === "ALL";
+      RW = ALLC ? TRX_ALL : TRX_ALL.filter((t) => t.no.split("/")[1] === state.cabang);
+      const ok = RW.filter((t) => t.status !== "Void");
       const omzet = ok.reduce((s, t) => s + t.total, 0);
       const opt = (arr) => ["Semua", ...new Set(arr)];
 
       return `
       ${UI.pageHeader({
         title: "Riwayat Transaksi",
-        sub: "Seluruh transaksi penjualan: cetak ulang struk, lihat detail, retur, atau void dengan otorisasi supervisor.",
+        sub: `Transaksi penjualan ${ALLC ? "seluruh cabang (konsolidasi)" : "<b>" + esc(UI.cabangNama(state.cabang)) + "</b>"}: cetak ulang struk, lihat detail, retur, atau void dengan otorisasi supervisor.`,
         crumbs: ["Transaksi", "Riwayat Transaksi"],
         actions: `${btn("Transaksi Baru", "success", { icon: "point_of_sale", attrs: 'data-go="kasir"' })}${btn("Export Excel", "glass", { icon: "table_view", attrs: 'data-toast="Riwayat transaksi diekspor ke Excel (.xlsx)"' })}`,
       })}
 
       <div class="grid g-4">
         ${stat({ label: "Omzet (tanpa void)", value: short(omzet), icon: "payments", tone: "primary", delta: 5.3, foot: "vs kemarin jam yang sama", hero: true })}
-        ${stat({ label: "Jumlah transaksi", value: num(TRX.length), icon: "receipt_long", tone: "success", foot: `${TRX.filter((t) => t.jenis === "Resep" || t.jenis === "Racikan").length} resep/racikan` })}
+        ${stat({ label: "Jumlah transaksi", value: num(RW.length), icon: "receipt_long", tone: "success", foot: `${RW.filter((t) => t.jenis === "Resep" || t.jenis === "Racikan").length} resep/racikan` })}
         ${stat({ label: "Rata-rata per transaksi", value: rp(omzet / ok.length), icon: "shopping_basket", tone: "info", foot: "basket size" })}
-        ${stat({ label: "Void & retur", value: TRX.filter((t) => t.status === "Void" || t.status === "Retur Sebagian").length, icon: "block", tone: "danger", foot: `${badge("Perlu review", "red", { dot: true })}` })}
+        ${stat({ label: "Void & retur", value: RW.filter((t) => t.status === "Void" || t.status === "Retur Sebagian").length, icon: "block", tone: "danger", foot: `${badge("Perlu review", "red", { dot: true })}` })}
       </div>
 
       ${card({
         flush: true,
         body: `${UI.filterBar(`
-            ${select("Jenis transaksi", opt(TRX.map((t) => t.jenis)), { id: "rw-jenis" })}
-            ${select("Metode bayar", opt(TRX.map((t) => t.bayar)), { id: "rw-bayar" })}
-            ${select("Kasir", opt(TRX.map((t) => t.kasir)), { id: "rw-kasir" })}
+            ${select("Jenis transaksi", opt(RW.map((t) => t.jenis)), { id: "rw-jenis" })}
+            ${select("Metode bayar", opt(RW.map((t) => t.bayar)), { id: "rw-bayar" })}
+            ${select("Kasir", opt(RW.map((t) => t.kasir)), { id: "rw-kasir" })}
             ${input("Cari", { id: "rw-q", icon: "search", ph: "No. invoice / pelanggan" })}`)}
           <div id="rw-tbl">${table({
             columns: [
@@ -1067,11 +1080,11 @@
               { label: "Status", render: (t) => `<span data-rw-status="${esc(t.no)}">${status(t.status)}</span>` },
               { label: "Aksi", cls: "actions", render: (t) => `<div class="btn-group">${btn("", "info", { icon: "visibility", size: "sm", title: "Lihat detail", attrs: `data-rw-view="${esc(t.no)}"` })}${btn("", "teal", { icon: "print", size: "sm", title: "Cetak ulang struk", attrs: `data-toast="Struk ${suffix(t.no)} dicetak ulang (COPY)"` })}${btn("", "danger", { icon: "block", size: "sm", title: "Void", attrs: `data-rw-void="${esc(t.no)}" ${t.status === "Lunas" ? "" : "disabled"}` })}</div>` },
             ],
-            rows: TRX,
+            rows: RW,
             rowCls: (t) => (t.status === "Void" ? "row-danger" : ""),
-            foot: `<tr><td colspan="6">Total <span id="rw-n">${TRX.length}</span> transaksi (tanpa void)</td><td class="num" id="rw-sum">${rp(omzet)}</td><td colspan="2"></td></tr>`,
+            foot: `<tr><td colspan="6">Total <span id="rw-n">${RW.length}</span> transaksi (tanpa void)</td><td class="num" id="rw-sum">${rp(omzet)}</td><td colspan="2"></td></tr>`,
           })}</div>
-          ${pager(TRX.length, 25)}`,
+          ${pager(RW.length, 25)}`,
       })}
 
       <div class="grid g-2">
@@ -1105,7 +1118,7 @@
       const apply = () => {
         const q = (f.q.value || "").toLowerCase();
         let n = 0, sum = 0;
-        TRX.forEach((t, i) => {
+        RW.forEach((t, i) => {
           const show = (f.jenis.value === "Semua" || t.jenis === f.jenis.value) && (f.bayar.value === "Semua" || t.bayar === f.bayar.value) && (f.kasir.value === "Semua" || t.kasir === f.kasir.value) && (!q || t.no.toLowerCase().includes(q) || t.pelanggan.toLowerCase().includes(q));
           if (rows[i]) rows[i].hidden = !show;
           if (show && t.status !== "Void") { n++; sum += t.total; }
@@ -1118,9 +1131,9 @@
 
       root.addEventListener("click", (e) => {
         const v = e.target.closest("[data-rw-view]");
-        if (v) openTrx(TRX.find((t) => t.no === v.dataset.rwView), root);
+        if (v) openTrx(RW.find((t) => t.no === v.dataset.rwView), root);
         const vd = e.target.closest("[data-rw-void]");
-        if (vd && !vd.disabled) voidFlow(TRX.find((t) => t.no === vd.dataset.rwVoid), root);
+        if (vd && !vd.disabled) voidFlow(RW.find((t) => t.no === vd.dataset.rwVoid), root);
       });
     },
   };
