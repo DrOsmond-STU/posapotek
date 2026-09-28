@@ -610,20 +610,11 @@
   const INTERNAL = [0.024, 0.006, 0.002, 0.003, 0]; // mutasi keluar ke cabang lain (dicatat sbg penjualan internal pada harga pokok)
   const LR_KEYS = ["bruto", "diskon", "retur", "bersih", "hpp", "lk", "gaji", "sewa", "listrik", "susut", "lain", "lo", "pendLain", "lsp", "pajak", "lb"];
 
+  // Sumber: jurnal (window.GL) — konsisten dengan neraca saldo, buku besar & neraca
   function lrKons(n) {
-    const cols = CAB.map((c, i) => {
-      const ext = sum(CAB_BULAN[i].slice(-n));
-      const internal = R(ext * INTERNAL[i]);
-      const diskon = R(ext * 0.021), retur = R(ext * 0.006);
-      const bersih = ext + internal;
-      const hpp = R(ext * HPP_R[i]) + internal;
-      const lk = bersih - hpp;
-      const gaji = R(c.karyawan * 6.4e6 * n), sewa = R(FIX.sewa[i] * n), listrik = R(FIX.listrik[i] * n), susut = R(FIX.susut[i] * n), lain = R(ext * 0.032);
-      const lo = lk - gaji - sewa - listrik - susut - lain;
-      const pendLain = R(ext * 0.0042);
-      const lsp = lo + pendLain;
-      const pajak = Math.max(0, R(lsp * 0.22));
-      return { bruto: bersih + diskon + retur, diskon, retur, bersih, hpp, lk, gaji, sewa, listrik, susut, lain, lo, pendLain, lsp, pajak, lb: lsp - pajak, internal };
+    const cols = CAB.map((c) => {
+      const o = GL.labaRugi(c.id, n);
+      return { bruto: o.bruto, diskon: o.diskon, retur: o.retur, bersih: o.bersih, hpp: o.hpp, lk: o.lk, gaji: o.gaji, sewa: o.sewa, listrik: o.listrik, susut: o.susut, lain: o.promo + o.bank + o.lain, lo: o.lo, pendLain: o.pendLain, lsp: o.lsp, pajak: o.pajak, lb: o.lb, internal: o.internal };
     });
     const tot = sum(cols, (c) => c.internal);
     const elim = {};
@@ -663,40 +654,26 @@
   const konsHeads = [...CAB.map((c) => `<span title="${esc(c.nama)}">${esc(cabShort(c.id))}</span>`), "Eliminasi", "Konsolidasi"];
 
   function neraca() {
-    const kas = [412e6, 268e6, 214e6, 236e6, 151e6];
-    const piutang = [186e6, 62e6, 44e6, 51e6, 38e6];
-    const piutangAC = [96e6, 12e6, 0, 0, 0];
-    const tetap = [1420e6, 860e6, 740e6, 810e6, 520e6];
-    const hutangAC = [0, 0, 27e6, 34e6, 47e6];
-    const pajak = [58e6, 34e6, 28e6, 31e6, 19e6];
-    const totHutangPbf = sum(DB.supplier, (s) => s.hutang);
-    const cols = CAB.map((c, i) => {
-      const o = { kas: kas[i], piutang: piutang[i], piutangAC: piutangAC[i], persediaan: stokCab(c.id), tetap: tetap[i], hutang: R(totHutangPbf * share(c.id)), hutangAC: hutangAC[i], pajak: pajak[i] };
-      o.al = o.kas + o.piutang + o.piutangAC + o.persediaan;
-      o.aset = o.al + o.tetap;
-      o.liab = o.hutang + o.hutangAC + o.pajak;
-      o.ekuitas = o.aset - o.liab;
-      o.le = o.liab + o.ekuitas;
-      return o;
-    });
-    const ac = sum(piutangAC);
-    const elim = { piutangAC: -ac, al: -ac, aset: -ac, hutangAC: -ac, liab: -ac, le: -ac };
-    const keys = Object.keys(cols[0]);
+    const KEYS = ["kas", "piutang", "piutangAC", "persediaan", "dimuka", "al", "tetap", "aset", "hutang", "hutangAC", "pajak", "liabPendek", "bankLoan", "liab", "ekuitas", "le"];
+    const cols = CAB.map((c) => { const n = GL.neraca(c.id); const o = {}; KEYS.forEach((k) => { o[k] = n[k]; }); return o; });
+    const ac = sum(cols, (c) => c.piutangAC);
+    const elim = { piutangAC: -ac, al: -ac, aset: -ac, hutangAC: -ac, liabPendek: -ac, liab: -ac, le: -ac };
     const kons = {};
-    keys.forEach((k) => { kons[k] = sum(cols, (c) => c[k]) + (elim[k] || 0); });
+    KEYS.forEach((k) => { kons[k] = sum(cols, (c) => c[k]) + (elim[k] || 0); });
     return { cols, elim, kons };
   }
   const NERACA_DEF = [
     { g: "Aset lancar" },
-    { k: "kas", l: "Kas & bank" }, { k: "piutang", l: "Piutang usaha (B2B, settlement kartu/QRIS)" }, { k: "piutangAC", l: "Piutang antar cabang" },
-    { k: "persediaan", l: "Persediaan obat & alkes" }, { k: "al", l: "Total aset lancar", sub: 1 },
+    { k: "kas", l: "Kas & bank" }, { k: "piutang", l: "Piutang usaha (B2B, BPJS, settlement kartu/QRIS)" }, { k: "piutangAC", l: "Piutang antar cabang" },
+    { k: "persediaan", l: "Persediaan obat & alkes" }, { k: "dimuka", l: "Pajak & biaya dibayar dimuka" }, { k: "al", l: "Total aset lancar", sub: 1 },
     { g: "Aset tidak lancar" },
     { k: "tetap", l: "Aset tetap (neto)" }, { k: "aset", l: "Total aset", sub: 1 },
     { g: "Liabilitas" },
     { k: "hutang", l: "Hutang usaha (PBF)" }, { k: "hutangAC", l: "Hutang antar cabang" }, { k: "pajak", l: "Hutang pajak & beban akrual" },
+    { k: "liabPendek", l: "Total liabilitas jangka pendek", sub: 1 }, { k: "bankLoan", l: "Hutang bank jangka panjang" },
     { k: "liab", l: "Total liabilitas", sub: 1 },
     { g: "Ekuitas" },
-    { k: "ekuitas", l: "Ekuitas (modal disetor & saldo laba)" },
+    { k: "ekuitas", l: "Ekuitas (modal, saldo laba & laba berjalan)" },
     { k: "le", l: "Total liabilitas & ekuitas", foot: 1 },
   ];
 
@@ -705,37 +682,30 @@
       const P = { bulan: lrKons(1), kuartal: lrKons(3), tahun: lrKons(12) };
       const K = P.bulan.kons;
       const N = neraca();
-      const kasAkhir = N.kons.kas;
+      const AK = GL.arusKas("ALL");
       const ak = [
         { g: "Arus kas dari aktivitas operasi" },
-        { k: "terima", l: "Penerimaan dari pelanggan", v: K.bersih - 18.4e6 },
-        { k: "pbf", l: "Pembayaran ke PBF / pemasok", v: -(K.hpp + 42e6 - 25e6) },
-        { k: "gaji", l: "Pembayaran gaji & tunjangan", v: -K.gaji },
-        { k: "ops", l: "Pembayaran sewa, listrik & beban operasional", v: -(K.sewa + K.listrik + K.lain) },
-        { k: "pajak", l: "Pembayaran pajak (angsuran PPh 25)", v: -R(K.pajak * 0.9) },
+        { k: "terima", l: "Penerimaan dari pelanggan (tunai, settlement kartu/QRIS, B2B, BPJS)" },
+        { k: "pbf", l: "Pembayaran ke PBF / pemasok" },
+        { k: "gaji", l: "Pembayaran gaji & tunjangan" },
+        { k: "ops", l: "Pembayaran sewa, listrik & beban operasional" },
+        { k: "pajak", l: "Pembayaran pajak (PPN, PPh 25)" },
         { k: "op", l: "Arus kas bersih dari aktivitas operasi", sub: 1 },
         { g: "Arus kas dari aktivitas investasi" },
-        { k: "aset", l: "Pembelian aset tetap (lemari pendingin vaksin, renovasi)", v: -68.5e6 },
-        { k: "sistem", l: "Pengembangan sistem POS & perangkat kasir", v: -12e6 },
+        { k: "aset", l: "Pembelian aset tetap" },
         { k: "inv", l: "Arus kas bersih dari aktivitas investasi", sub: 1 },
         { g: "Arus kas dari aktivitas pendanaan" },
-        { k: "pinjaman", l: "Pembayaran pokok pinjaman bank", v: -45e6 },
-        { k: "dividen", l: "Pembagian dividen interim", v: -150e6 },
+        { k: "pinjaman", l: "Pembayaran pokok & bunga pinjaman bank" },
+        { k: "modal", l: "Setoran modal" },
+        { k: "dividen", l: "Pembagian dividen interim" },
         { k: "dana", l: "Arus kas bersih dari aktivitas pendanaan", sub: 1 },
         { g: "Ringkasan" },
         { k: "naik", l: "Kenaikan (penurunan) kas bersih", sub: 1 },
         { k: "awal", l: "Kas & bank awal periode" },
         { k: "akhir", l: "Kas & bank akhir periode", foot: 1 },
       ];
-      const akv = {};
-      ak.forEach((d) => { if (d.v !== undefined) akv[d.k] = R(d.v); });
-      akv.op = akv.terima + akv.pbf + akv.gaji + akv.ops + akv.pajak;
-      akv.inv = akv.aset + akv.sistem;
-      akv.dana = akv.pinjaman + akv.dividen;
-      akv.naik = akv.op + akv.inv + akv.dana;
-      akv.akhir = kasAkhir;
-      akv.awal = kasAkhir - akv.naik;
-      const tren = DB.bulanan;
+      const akv = AK;
+      const tren = BULAN.map((bl, i) => { const o = GL.labaRugi("ALL", 1, i - LAST); return { bulan: bl, pendapatan: o.bersih, hpp: o.hpp, biaya: o.beban, laba: o.lo }; });
       const trenT = { p: sum(tren, (b) => b.pendapatan), h: sum(tren, (b) => b.hpp), b: sum(tren, (b) => b.biaya), l: sum(tren, (b) => b.laba) };
 
       return `
@@ -971,28 +941,9 @@
      5. LABA RUGI (entitas tunggal: cabang aktif atau gabungan)
      ===================================================================== */
   const BEBAN = [["gaji", "Gaji & tunjangan karyawan", 0.5], ["sewa", "Sewa gedung", 0.17], ["listrik", "Listrik, air & internet", 0.07], ["susut", "Penyusutan aset tetap", 0.06], ["promo", "Pemasaran & promosi", 0.06], ["bank", "Administrasi bank & MDR", 0.06], ["lain", "Beban operasional lain", 0.08]];
+  // Sumber: jurnal (window.GL). m = indeks DB.bulanan (LAST = bulan berjalan s.d. hari ini)
   function lrBulan(st, m) {
-    const f = share(st.cabang);
-    const b = DB.bulanan[m];
-    const r = mk(2000 + m);
-    const o = {};
-    o.bersih = R(b.pendapatan * f);
-    o.diskon = R(o.bersih * r.f(0.019, 0.024));
-    o.retur = R(o.bersih * r.f(0.004, 0.007));
-    o.bruto = o.bersih + o.diskon + o.retur;
-    o.hpp = R(b.hpp * f);
-    o.lk = o.bersih - o.hpp;
-    o.beban = R(b.biaya * f);
-    let rest = o.beban;
-    BEBAN.forEach(([k, , w], i) => { o[k] = i === BEBAN.length - 1 ? rest : R(o.beban * w * r.f(0.94, 1.06)); rest -= o[k]; });
-    o.lo = o.lk - o.beban;
-    o.rebate = R(o.bersih * r.f(0.003, 0.0045));
-    o.bunga = R(o.bersih * 0.0006);
-    o.bBunga = R(o.bersih * 0.0011);
-    o.lsp = o.lo + o.rebate + o.bunga - o.bBunga;
-    o.pajak = Math.max(0, R(o.lsp * 0.22));
-    o.lb = o.lsp - o.pajak;
-    return o;
+    return GL.labaRugi(st.cabang, 1, m - LAST);
   }
   const LR1 = [
     { g: "Pendapatan" },
@@ -1034,7 +985,7 @@
       const foot = LR1.filter((d) => d.foot).map(row).join("");
 
       return `
-      ${header("Laba Rugi", `Laporan laba rugi <b>${esc(state.cabang === "ALL" ? "gabungan semua cabang (setelah eliminasi)" : scopeName(state))}</b> · ${NAMA_BULAN[M0]} ${Y} dibanding bulan lalu`)}
+      ${header("Laba Rugi", `Laporan laba rugi <b>${esc(state.cabang === "ALL" ? "gabungan semua cabang (setelah eliminasi)" : scopeName(state))}</b> · ${NAMA_BULAN[M0]} ${Y} (s.d. ${tgl(DB.TODAY)}) dibanding bulan lalu. Disusun dari jurnal umum & neraca saldo.`)}
       ${fbar(select("Bandingkan dengan", ["Bulan lalu", "Bulan yang sama tahun lalu", "Anggaran (budget)"]))}
 
       <div class="grid g-4">
@@ -1049,7 +1000,7 @@
           body: `<div class="table-wrap"><table class="tbl compact">
             <thead><tr><th>Keterangan <span class="t-sub">(Rp ribuan)</span></th><th class="num">Bulan ini</th><th class="num">%</th><th class="num">Bulan lalu</th><th class="num">%</th><th class="num">Selisih</th><th class="num">Perubahan</th></tr></thead>
             <tbody>${body}</tbody><tfoot>${foot}</tfoot></table></div>`,
-          foot: `<span class="small muted">${icon("info")} PPh Badan tarif umum 22% (estimasi, sebelum koreksi fiskal). Angka dalam kurung adalah pengurang.</span>`,
+          foot: `<span class="small muted">${icon("info")} Bulan ini = bulan berjalan s.d. hari ini. PPh Badan tarif umum 22% (estimasi, sebelum koreksi fiskal). Angka dalam kurung adalah pengurang.</span><span class="spacer"></span>${btn("Jurnal Umum", "info", { size: "sm", icon: "edit_note", attrs: 'data-go="jurnal"' })}${btn("Neraca Saldo", "purple", { size: "sm", icon: "balance", attrs: 'data-go="neracasaldo"' })}${btn("Neraca", "primary", { size: "sm", icon: "account_balance", attrs: 'data-go="neraca"' })}`,
         })}
       <div class="grid g-3-2">
           ${card({

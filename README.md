@@ -30,8 +30,18 @@ Butuh koneksi internet untuk font (Google Fonts: Plus Jakarta Sans, JetBrains Mo
 | Persediaan | Master Obat (`#obat`), Stok Obat (`#stok`), Stok Kedaluwarsa (`#kadaluarsa`), Stok Opname (`#opname`), Mutasi Antar Cabang (`#mutasi`), Kartu Stok (`#kartustok`) |
 | Pembelian | Surat Pesanan (`#pesanan`), Penerimaan Barang (`#penerimaan`), Retur Pembelian (`#returbeli`), Hutang Supplier (`#hutang`), Supplier/PBF (`#supplier`) |
 | Relasi | Pasien & Member (`#pelanggan`), Dokter (`#dokter`) |
-| Laporan | Penjualan, Cabang, Konsolidasi, Sales, Laba Rugi, Persediaan, Pembelian, Kedaluwarsa, Narkotika & Psikotropika/SIPNAP (`#lap-*`) |
+| Akuntansi & Keuangan | Chart of Account (`#coa`), Jurnal Umum (`#jurnal`), Kartu Buku Besar (`#bukubesar`), Neraca Saldo & Neraca Lajur (`#neracasaldo`), Laba Rugi (`#lap-labarugi`), Neraca (`#neraca`) |
+| Laporan | Penjualan, Cabang, Konsolidasi, Sales, Persediaan, Pembelian, Kedaluwarsa, Narkotika & Psikotropika/SIPNAP (`#lap-*`) |
 | Pengaturan | Manajemen Cabang, Pengguna & Hak Akses, Pengaturan Sistem, Log Aktivitas, **Panduan UI / Style Guide** (`#panduan`) |
+
+## Integrasi akuntansi
+
+`assets/js/akuntansi.js` (`window.GL`) adalah satu sumber data keuangan:
+
+- **COA** 4 level (Aset, Liabilitas, Ekuitas, Pendapatan, HPP, Beban, Lain-lain, Pajak) + saldo awal per cabang.
+- **Jurnal otomatis** dari transaksi operasional: rekap kasir & resep, HPP (FEFO), setoran kas, settlement EDC/QRIS, pembelian & pembayaran PBF, piutang B2B & BPJS, retur, mutasi antar cabang, pemusnahan ED, opname, penggajian, penyusutan, akrual, PPN & PPh.
+- **Jurnal manual & jurnal balik** yang diposting langsung memengaruhi buku besar, neraca saldo, laba rugi, neraca, dan laporan konsolidasi.
+- **Laporan Laba Rugi, Neraca, Arus Kas, dan Konsolidasi** (dengan eliminasi penjualan/HPP internal serta piutang/hutang antar cabang) semuanya dihitung dari jurnal yang sama, sehingga selalu seimbang dan konsisten.
 
 ## Bahasa warna tombol
 

@@ -1276,6 +1276,561 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size
 })();
 
 </script>
+  <script>
+/* =====================================================================
+   Mesin akuntansi (window.GL) — satu sumber data untuk:
+   COA, jurnal umum, buku besar, neraca saldo, neraca, laba rugi & konsolidasi.
+   Jurnal dibentuk otomatis dari transaksi operasional (kasir, resep, pembelian,
+   hutang, mutasi, kedaluwarsa, penggajian, penyesuaian) + jurnal manual.
+   Semua angka fiktif & deterministik.
+   ===================================================================== */
+(function () {
+  const R = Math.round;
+  const TODAY = DB.TODAY;
+  const Y = TODAY.getFullYear();
+  const M = TODAY.getMonth();
+  const BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  /* ---------------- Chart of Account ----------------
+     [kode, nama, normal, header?]  tipe diturunkan dari digit pertama */
+  const RAW = [
+    ["1", "ASET", "D", 1],
+    ["1-1000", "Aset Lancar", "D", 1],
+    ["1-1100", "Kas & Setara Kas", "D", 1],
+    ["1-1101", "Kas Kecil Kasir", "D"],
+    ["1-1102", "Kas Besar (Brankas)", "D"],
+    ["1-1103", "Bank BCA - Operasional", "D"],
+    ["1-1104", "Bank Mandiri - Settlement EDC/QRIS", "D"],
+    ["1-1200", "Piutang", "D", 1],
+    ["1-1201", "Piutang Usaha B2B (Klinik & Praktik)", "D"],
+    ["1-1202", "Piutang Klaim BPJS PRB", "D"],
+    ["1-1203", "Piutang Settlement Kartu & QRIS", "D"],
+    ["1-1204", "Piutang Antar Cabang", "D"],
+    ["1-1300", "Persediaan", "D", 1],
+    ["1-1301", "Persediaan Obat", "D"],
+    ["1-1302", "Persediaan Alat Kesehatan", "D"],
+    ["1-1303", "Persediaan Karantina (ED/Rusak)", "D"],
+    ["1-1400", "Pajak & Biaya Dibayar Dimuka", "D", 1],
+    ["1-1401", "PPN Masukan", "D"],
+    ["1-1402", "PPh 25 Dibayar Dimuka", "D"],
+    ["1-1403", "Sewa Dibayar Dimuka", "D"],
+    ["1-2000", "Aset Tidak Lancar", "D", 1],
+    ["1-2101", "Peralatan Apotek (Rak, Lemari Pendingin)", "D"],
+    ["1-2102", "Perangkat Komputer & POS", "D"],
+    ["1-2103", "Kendaraan Operasional", "D"],
+    ["1-2104", "Renovasi Gedung Sewa", "D"],
+    ["1-2109", "Akumulasi Penyusutan", "K"],
+    ["2", "LIABILITAS", "K", 1],
+    ["2-1000", "Liabilitas Jangka Pendek", "K", 1],
+    ["2-1101", "Hutang Usaha (PBF)", "K"],
+    ["2-1102", "Hutang Antar Cabang", "K"],
+    ["2-1201", "PPN Keluaran", "K"],
+    ["2-1202", "Hutang PPh 21", "K"],
+    ["2-1203", "Hutang PPh Badan (PPh 29)", "K"],
+    ["2-1301", "Beban Masih Harus Dibayar", "K"],
+    ["2-1302", "Pendapatan Diterima Dimuka (Poin Member)", "K"],
+    ["2-2000", "Liabilitas Jangka Panjang", "K", 1],
+    ["2-2101", "Hutang Bank Jangka Panjang", "K"],
+    ["3", "EKUITAS", "K", 1],
+    ["3-1101", "Modal Disetor", "K"],
+    ["3-1201", "Saldo Laba Ditahan", "K"],
+    ["3-1301", "Laba Tahun Berjalan", "K"],
+    ["3-1401", "Dividen / Prive", "D"],
+    ["4", "PENDAPATAN", "K", 1],
+    ["4-1000", "Penjualan", "K", 1],
+    ["4-1101", "Penjualan Obat Bebas (Swamedikasi)", "K"],
+    ["4-1102", "Penjualan Obat Resep", "K"],
+    ["4-1103", "Penjualan Obat Racikan", "K"],
+    ["4-1104", "Penjualan B2B (Klinik & Praktik)", "K"],
+    ["4-1105", "Penjualan BPJS PRB", "K"],
+    ["4-1201", "Pendapatan Jasa (Tuslah, Embalase, Racik)", "K"],
+    ["4-1301", "Diskon Penjualan", "D"],
+    ["4-1302", "Retur Penjualan", "D"],
+    ["4-1401", "Penjualan Internal Antar Cabang", "K"],
+    ["5", "HARGA POKOK PENJUALAN", "D", 1],
+    ["5-1101", "HPP Obat & Alkes", "D"],
+    ["5-1102", "HPP Internal Antar Cabang", "D"],
+    ["5-1201", "Kerugian Obat Kedaluwarsa", "D"],
+    ["5-1202", "Selisih Stok Opname", "D"],
+    ["6", "BEBAN USAHA", "D", 1],
+    ["6-1101", "Beban Gaji & Tunjangan", "D"],
+    ["6-1102", "Beban BPJS Ketenagakerjaan & Kesehatan", "D"],
+    ["6-1201", "Beban Sewa Gedung", "D"],
+    ["6-1202", "Beban Listrik, Air & Internet", "D"],
+    ["6-1301", "Beban Penyusutan", "D"],
+    ["6-1401", "Beban Pemasaran & Promosi", "D"],
+    ["6-1402", "Beban Administrasi Bank & MDR", "D"],
+    ["6-1501", "Beban ATK & Perlengkapan", "D"],
+    ["6-1502", "Beban Pemeliharaan & Perbaikan", "D"],
+    ["6-1601", "Beban Perizinan (SIA, SIPA, STRA)", "D"],
+    ["6-1901", "Beban Operasional Lain", "D"],
+    ["7", "PENDAPATAN & BEBAN LAIN-LAIN", "K", 1],
+    ["7-1101", "Rebate & Bonus PBF", "K"],
+    ["7-1102", "Pendapatan Jasa Giro", "K"],
+    ["7-2101", "Beban Bunga Pinjaman", "D"],
+    ["8", "PAJAK PENGHASILAN", "D", 1],
+    ["8-1101", "Beban PPh Badan", "D"],
+  ];
+  const TIPE = { 1: "Aset", 2: "Liabilitas", 3: "Ekuitas", 4: "Pendapatan", 5: "HPP", 6: "Beban", 7: "Lain-lain", 8: "Pajak" };
+  const HEAD = new Set(RAW.filter((r) => r[3]).map((r) => r[0]));
+  const parentOf = (kode) => {
+    if (kode.length === 1) return null;
+    if (/000$/.test(kode)) return kode[0];
+    const p3 = kode.slice(0, 4) + "00";
+    if (p3 !== kode && HEAD.has(p3)) return p3;
+    const p2 = kode.slice(0, 3) + "000";
+    return HEAD.has(p2) ? p2 : kode[0];
+  };
+  const COA = [];
+  RAW.forEach(([kode, nama, normal, header]) => {
+    const parent = parentOf(kode);
+    const level = parent ? COA.find((a) => a.kode === parent).level + 1 : 1;
+    COA.push({ kode, nama, normal, header: !!header, level, parent, tipe: TIPE[kode[0]], laporan: +kode[0] <= 3 ? "Neraca" : "Laba Rugi", aktif: true });
+  });
+  const akun = (k) => COA.find((a) => a.kode === k);
+  const DETAIL = COA.filter((a) => !a.header);
+  const isNeraca = (k) => +k[0] <= 3;
+
+  /* ---------------- util ---------------- */
+  const rng = (s) => { let x = s % 2147483647 || 1; return () => { x = (x * 48271) % 2147483647; return x / 2147483647; }; };
+  const CAB = DB.cabang;
+  const BASE = CAB[0].omzet;
+  const SEWA = { PST: 42e6, BKS: 28e6, DPK: 24e6, TGR: 26e6, BGR: 18e6 };
+  const LISTRIK = { PST: 14.2e6, BKS: 9.6e6, DPK: 8.3e6, TGR: 9.1e6, BGR: 6.2e6 };
+  const SUSUT = { PST: 11.4e6, BKS: 6.6e6, DPK: 5.9e6, TGR: 6.3e6, BGR: 4.4e6 };
+  const HPP_R = { PST: 0.689, BKS: 0.682, DPK: 0.698, TGR: 0.686, BGR: 0.705 };
+  const MDR = 0.0072;
+  const yymm = (y, m) => String(y).slice(2) + String(m + 1).padStart(2, "0");
+
+  /* ---------------- pembangkit jurnal per bulan ---------------- */
+  const cache = {};
+  function genMonth(off) {
+    if (cache[off]) return cache[off];
+    const d0 = new Date(Y, M + off, 1);
+    const y = d0.getFullYear(), m = d0.getMonth();
+    const last = new Date(y, m + 1, 0).getDate();
+    const upto = off === 0 ? TODAY.getDate() : last;
+    const endDay = Math.min(last, upto);
+    const out = [];
+    const seq = {};
+    const no = (pre, cab) => { const k = pre + cab; seq[k] = (seq[k] || 0) + 1; return `${pre}/${cab}/${yymm(y, m)}/${String(seq[k]).padStart(3, "0")}`; };
+    const J = (day, cab, pre, sumber, ref, ket, lines) => {
+      const L = lines.filter((l) => l && (l.d || l.k)).map((l) => ({ akun: l.akun, d: R(l.d || 0), k: R(l.k || 0) }));
+      const dt = L.reduce((s, l) => s + l.d, 0), kt = L.reduce((s, l) => s + l.k, 0);
+      if (dt !== kt) { const fix = L[L.length - 1]; if (fix.k) fix.k += dt - kt; else fix.d += kt - dt; }
+      out.push({ no: no(pre, cab), tgl: iso(new Date(y, m, day)), cabang: cab, sumber, ref, ket, lines: L, status: "Posted", user: sumber === "Manual" ? "Teguh S. (Keuangan)" : "Sistem" });
+    };
+
+    CAB.forEach((c, ci) => {
+      const r = rng((y * 100 + m) * 10 + ci + 7);
+      const f = (a, b) => a + r() * (b - a);
+      const s = c.omzet / BASE;
+      const monthly = c.omzet * (1 + off * 0.006) * f(0.97, 1.03);
+      let pendHari = [];
+      // --- penjualan harian (rekap kasir & resep) + HPP ---
+      for (let d = 1; d <= endDay; d++) {
+        const wd = new Date(y, m, d).getDay();
+        const bruto = monthly / last * (wd === 0 || wd === 6 ? 1.12 : 0.95) * f(0.9, 1.1);
+        const bebas = bruto * 0.62, resepV = bruto * 0.21, racik = bruto * 0.045, b2b = c.id === "PST" ? bruto * 0.07 : bruto * 0.02, bpjs = bruto * 0.045;
+        const jasa = bruto * 0.012;
+        const diskon = (bebas + resepV) * 0.021;
+        const net = bebas + resepV + racik + b2b + bpjs + jasa - diskon;
+        const ppn = net * 0.11;
+        const tot = net + ppn;
+        const bpjsTot = bpjs * 1.11, b2bTot = b2b * 1.11;
+        const tunai = (tot - bpjsTot - b2bTot) * 0.42;
+        const nonTunai = tot - bpjsTot - b2bTot - tunai;
+        const ref = `INV/${c.id}/${String(d).padStart(2, "0")}${String(m + 1).padStart(2, "0")}/0001–${String(R(c.trx / 30 * f(0.9, 1.1))).padStart(4, "0")}`;
+        J(d, c.id, "PJ", "Kasir & Resep", ref, `Rekap penjualan kasir & resep ${d} ${BULAN[m]}`, [
+          { akun: "1-1101", d: tunai }, { akun: "1-1203", d: nonTunai }, { akun: "1-1201", d: b2bTot }, { akun: "1-1202", d: bpjsTot },
+          { akun: "4-1301", d: diskon },
+          { akun: "4-1101", k: bebas }, { akun: "4-1102", k: resepV }, { akun: "4-1103", k: racik }, { akun: "4-1104", k: b2b }, { akun: "4-1105", k: bpjs },
+          { akun: "4-1201", k: jasa }, { akun: "2-1201", k: ppn },
+        ]);
+        const hpp = (net - jasa) * HPP_R[c.id] * f(0.99, 1.01);
+        J(d, c.id, "PJ", "Kasir & Resep", "FEFO otomatis", `HPP penjualan ${d} ${BULAN[m]} (metode FEFO)`, [
+          { akun: "5-1101", d: hpp }, { akun: "1-1301", k: hpp * 0.93 }, { akun: "1-1302", k: hpp * 0.07 },
+        ]);
+        pendHari.push({ d, tunai, nonTunai, hpp, b2bTot });
+        // setoran kas ke bank (H+0 sore) & settlement EDC/QRIS (H+1)
+        J(d, c.id, "KM", "Kas & Bank", `STR/${c.id}/${String(d).padStart(2, "0")}`, "Setoran kas harian ke Bank BCA", [
+          { akun: "1-1103", d: tunai * 0.96 }, { akun: "1-1101", k: tunai * 0.96 },
+        ]);
+        if (d > 1) {
+          const p = pendHari[pendHari.length - 2];
+          J(d, c.id, "BK", "Kas & Bank", `STL/EDC-QRIS/${String(d - 1).padStart(2, "0")}`, `Settlement EDC & QRIS transaksi tgl ${d - 1}`, [
+            { akun: "1-1104", d: p.nonTunai * (1 - MDR) }, { akun: "6-1402", d: p.nonTunai * MDR }, { akun: "1-1203", k: p.nonTunai },
+          ]);
+        }
+        // pembelian ke PBF tiap 3 hari
+        if (d % 3 === 0) {
+          const buy = pendHari.slice(-3).reduce((a, x) => a + x.hpp, 0) * f(0.98, 1.08);
+          const sp = DB.supplier[(d / 3 + ci) % DB.supplier.length];
+          J(d, c.id, "PB", "Pembelian", `FKT/${sp.id}/${yymm(y, m)}${String(d).padStart(2, "0")}`, `Penerimaan barang dari ${sp.nama}`, [
+            { akun: "1-1301", d: buy * 0.93 }, { akun: "1-1302", d: buy * 0.07 }, { akun: "1-1401", d: buy * 0.11 }, { akun: "2-1101", k: buy * 1.11 },
+          ]);
+        }
+        // pembayaran hutang PBF tiap Jumat
+        if (wd === 5) {
+          const pay = monthly * HPP_R[c.id] * 1.11 * 0.9 / 4.3 * f(0.95, 1.05);
+          J(d, c.id, "BK", "Hutang Supplier", `PAY/${c.id}/${String(d).padStart(2, "0")}`, "Pembayaran hutang PBF jatuh tempo (TOP 30–45 hari)", [
+            { akun: "2-1101", d: pay }, { akun: "1-1104", k: pay * 0.6 }, { akun: "1-1103", k: pay * 0.4 },
+          ]);
+        }
+        // pelunasan piutang B2B tiap Senin
+        if (wd === 1 && pendHari.length > 3) {
+          const col = pendHari.slice(-7).reduce((a, x) => a + x.b2bTot, 0) * f(0.9, 1.05);
+          J(d, c.id, "BK", "Piutang", `RCV/B2B/${c.id}/${String(d).padStart(2, "0")}`, "Pelunasan piutang klinik & praktik dokter", [
+            { akun: "1-1103", d: col }, { akun: "1-1201", k: col },
+          ]);
+        }
+        // retur penjualan tiap Sabtu
+        if (wd === 6) {
+          const rt = bruto * 0.035;
+          J(d, c.id, "PJ", "Retur Penjualan", `RTR/${c.id}/${String(d).padStart(2, "0")}`, "Retur penjualan (kemasan rusak / salah obat)", [
+            { akun: "4-1302", d: rt }, { akun: "2-1201", d: rt * 0.11 }, { akun: "1-1101", k: rt * 1.11 },
+          ]);
+          J(d, c.id, "PJ", "Retur Penjualan", `RTR/${c.id}/${String(d).padStart(2, "0")}`, "Pengembalian stok dari retur penjualan", [
+            { akun: "1-1301", d: rt * HPP_R[c.id] }, { akun: "5-1101", k: rt * HPP_R[c.id] },
+          ]);
+        }
+      }
+      const dim = (dd) => Math.min(dd, endDay);
+      // --- kejadian bulanan ---
+      J(1, c.id, "PY", "Penyesuaian", `AMR/SEWA/${c.id}`, "Amortisasi sewa gedung dibayar dimuka", [
+        { akun: "6-1201", d: SEWA[c.id] }, { akun: "1-1403", k: SEWA[c.id] },
+      ]);
+      if (endDay >= 5) J(5, c.id, "KK", "Kas & Bank", `KK/${c.id}/ATK`, "Pembelian ATK, kertas puyer, plastik klip & etiket", [
+        { akun: "6-1501", d: 2.4e6 * s * f(0.9, 1.1) }, { akun: "1-1101", k: 2.4e6 * s },
+      ]);
+      if (endDay >= 10) J(10, c.id, "BK", "Kas & Bank", `PRM/${c.id}`, "Promosi member & diskon marketplace", [
+        { akun: "6-1401", d: monthly * 0.015 }, { akun: "1-1103", k: monthly * 0.015 },
+      ]);
+      if (c.id === "PST" && endDay >= 12) J(12, c.id, "BK", "Kas & Bank", "KRD/BCA/0921", "Angsuran pinjaman investasi BCA (pokok + bunga)", [
+        { akun: "2-2101", d: 21e6 }, { akun: "7-2101", d: 4.9e6 }, { akun: "1-1103", k: 25.9e6 },
+      ]);
+      if (endDay >= 15) {
+        J(15, c.id, "BK", "Piutang", `KLM/BPJS/${c.id}`, "Penerimaan klaim BPJS PRB bulan lalu", [
+          { akun: "1-1103", d: monthly * 0.045 * 1.11 * f(0.9, 1) }, { akun: "1-1202", k: monthly * 0.045 * 1.11 * f(0.9, 1) },
+        ]);
+        J(15, c.id, "BK", "Pajak", `SSP/PPH25/${c.id}`, "Setoran angsuran PPh Pasal 25", [
+          { akun: "1-1402", d: monthly * 0.0095 }, { akun: "1-1103", k: monthly * 0.0095 },
+        ]);
+        J(15, c.id, "PY", "Pembelian", `REB/PBF/${c.id}`, "Rebate & bonus pencapaian target PBF (potong hutang)", [
+          { akun: "2-1101", d: monthly * 0.0038 }, { akun: "7-1101", k: monthly * 0.0038 },
+        ]);
+      }
+      if (endDay >= 18) {
+        const ed = monthly * 0.0028 * f(0.7, 1.3);
+        J(18, c.id, "PY", "Kedaluwarsa", `BAP/${c.id}/${yymm(y, m)}`, "Pemusnahan obat kedaluwarsa (berita acara)", [
+          { akun: "5-1201", d: ed }, { akun: "1-1301", k: ed },
+        ]);
+      }
+      if (endDay >= 20) {
+        const ppnK = c.omzet * 0.11 * 0.97, ppnM = c.omzet * 0.672 * 1.04 * 0.11;
+        J(20, c.id, "BK", "Pajak", `SSP/PPN/${c.id}`, "Setor PPN masa bulan lalu (PPN keluaran − masukan)", [
+          { akun: "2-1201", d: ppnK }, { akun: "1-1401", k: ppnM }, { akun: "1-1103", k: ppnK - ppnM },
+        ]);
+      }
+      if (endDay >= 20) J(20, c.id, "BK", "Kas & Bank", `PLN/PDAM/${c.id}`, "Pembayaran listrik, air & internet", [
+        { akun: "6-1202", d: LISTRIK[c.id] * f(0.95, 1.05) }, { akun: "1-1103", k: LISTRIK[c.id] },
+      ]);
+      if (endDay >= 22) J(22, c.id, "PY", "Stok Opname", `OPN/${c.id}/${yymm(y, m)}`, "Penyesuaian selisih stok opname", [
+        { akun: "5-1202", d: monthly * 0.0006 * f(0.5, 1.5) }, { akun: "1-1301", k: monthly * 0.0006 },
+      ]);
+      if (endDay >= 25) {
+        const gaji = c.karyawan * 8.2e6;
+        J(25, c.id, "BK", "Penggajian", `GJ/${c.id}/${yymm(y, m)}`, `Pembayaran gaji ${c.karyawan} karyawan & BPJS`, [
+          { akun: "6-1101", d: gaji }, { akun: "6-1102", d: gaji * 0.057 },
+          { akun: "2-1202", k: gaji * 0.045 }, { akun: "1-1103", k: gaji * 1.012 },
+        ]);
+      }
+      // penyesuaian akhir periode (bulan berjalan: per hari ini)
+      J(dim(last), c.id, "PY", "Penyesuaian", `PNY/${c.id}/${yymm(y, m)}`, "Penyusutan aset tetap (garis lurus)", [
+        { akun: "6-1301", d: SUSUT[c.id] }, { akun: "1-2109", k: SUSUT[c.id] },
+      ]);
+      J(dim(last), c.id, "PY", "Penyesuaian", `AKR/${c.id}/${yymm(y, m)}`, "Akrual beban pemeliharaan, perizinan & operasional lain", [
+        { akun: "6-1502", d: 3.1e6 * s }, { akun: "6-1601", d: 0.9e6 * s }, { akun: "6-1901", d: monthly * 0.011 }, { akun: "2-1301", k: 4e6 * s + monthly * 0.011 },
+      ]);
+      J(dim(last), c.id, "BK", "Kas & Bank", `JSG/${c.id}`, "Jasa giro & pajak jasa giro", [
+        { akun: "1-1103", d: monthly * 0.0005 }, { akun: "7-1102", k: monthly * 0.0005 },
+      ]);
+    });
+
+    // --- mutasi antar cabang (dicatat pada harga pokok) ---
+    const MUT = [["PST", "BGR", 6.42e6, 3], ["BKS", "DPK", 3.18e6, 9], ["PST", "TGR", 9.87e6, 14], ["TGR", "PST", 1.24e6, 21]];
+    MUT.forEach(([a, b, v0, day], i) => {
+      if (day > endDay) return;
+      const v = v0 * (1 + ((off * 7 + i) % 5) * 0.08);
+      const ref = `MUT/${yymm(y, m)}/${String(11 + i).padStart(3, "0")}`;
+      J(day, a, "MT", "Mutasi Cabang", ref, `Mutasi keluar ke ${UI.cabangNama(b)}`, [
+        { akun: "1-1204", d: v }, { akun: "4-1401", k: v },
+      ]);
+      J(day, a, "MT", "Mutasi Cabang", ref, "HPP mutasi keluar", [
+        { akun: "5-1102", d: v }, { akun: "1-1301", k: v },
+      ]);
+      J(day, b, "MT", "Mutasi Cabang", ref, `Mutasi masuk dari ${UI.cabangNama(a)}`, [
+        { akun: "1-1301", d: v }, { akun: "2-1102", k: v },
+      ]);
+    });
+
+    // --- estimasi PPh badan per cabang (setelah seluruh transaksi) ---
+    CAB.forEach((c) => {
+      const lr = sumLR(out.filter((j) => j.cabang === c.id));
+      const tax = Math.max(0, R(lr * 0.22));
+      if (tax) J(endDay, c.id, "PY", "Pajak", `PPH/${c.id}/${yymm(y, m)}`, "Estimasi beban PPh Badan 22% periode berjalan", [
+        { akun: "8-1101", d: tax }, { akun: "2-1203", k: tax },
+      ]);
+    });
+
+    // --- jurnal manual contoh (bulan berjalan) ---
+    if (off === 0) {
+      if (endDay >= 8) J(8, "PST", "JM", "Manual", "MEMO/KEU/0917", "Reklasifikasi biaya kirim PBF ke persediaan", [
+        { akun: "1-1301", d: 1.85e6 }, { akun: "6-1901", k: 1.85e6 },
+      ]);
+      if (endDay >= 16) J(16, "BKS", "JM", "Manual", "MEMO/KEU/0921", "Koreksi salah posting beban listrik ke ATK", [
+        { akun: "6-1202", d: 640000 }, { akun: "6-1501", k: 640000 },
+      ]);
+      if (endDay >= 24) J(24, "PST", "JM", "Manual", "SK/DIR/2026/09", "Pembagian dividen interim ke pemegang saham", [
+        { akun: "3-1401", d: 75e6 }, { akun: "1-1103", k: 75e6 },
+      ]);
+    }
+    out.sort((a, b) => a.tgl.localeCompare(b.tgl) || a.cabang.localeCompare(b.cabang));
+    cache[off] = { y, m, label: `${BULAN[m]} ${y}`, from: iso(d0), to: iso(new Date(y, m, endDay)), journals: out };
+    return cache[off];
+  }
+  function sumLR(journals) {
+    let v = 0;
+    journals.forEach((j) => j.lines.forEach((l) => { if (!isNeraca(l.akun) && l.akun[0] !== "8") v += l.k - l.d; }));
+    return v;
+  }
+
+  /* ---------------- saldo awal (1 bulan berjalan) ---------------- */
+  const OPEN = {};
+  function opening(cab) {
+    if (OPEN[cab]) return OPEN[cab];
+    const c = CAB.find((x) => x.id === cab);
+    const s = c.omzet / BASE;
+    const shareH = c.omzet / CAB.reduce((a, x) => a + x.omzet, 0);
+    const o = {
+      "1-1101": 5e6, "1-1102": 25e6 * s, "1-1103": 385e6 * s, "1-1104": 96e6 * s,
+      "1-1201": cab === "PST" ? 182e6 : 36e6 * s, "1-1202": c.omzet * 0.045 * 1.11, "1-1203": c.omzet / 30 * 0.5,
+      "1-1204": { PST: 96e6, BKS: 12e6 }[cab] || 0,
+      "1-1301": c.omzet * 1.08, "1-1302": c.omzet * 0.08, "1-1303": 3.2e6 * s,
+      "1-1401": c.omzet * 0.672 * 1.04 * 0.11, "1-1402": c.omzet * 0.0095 * M, "1-1403": SEWA[cab] * (12 - M),
+      "1-2101": 420e6 * s, "1-2102": 150e6 * s, "1-2103": cab === "PST" ? 285e6 : 0, "1-2104": 380e6 * s,
+      "1-2109": -(SUSUT[cab] * (20 + M)),
+      "2-1101": -(DB.supplier.reduce((a, x) => a + x.hutang, 0) * shareH), "2-1102": -({ DPK: 27e6, TGR: 34e6, BGR: 47e6 }[cab] || 0),
+      "2-1201": -(c.omzet * 0.11 * 0.97), "2-1202": -(c.karyawan * 8.2e6 * 0.045), "2-1203": -(c.omzet * 0.014),
+      "2-1301": -(c.omzet * 0.012), "2-1302": -(c.omzet * 0.004), "2-2101": cab === "PST" ? -(504e6 - 21e6 * M) : 0,
+      "3-1101": -(cab === "PST" ? 1.25e9 : 0.5e9 * s + 150e6),
+      "3-1401": 0,
+    };
+    // laba tahun berjalan s.d. bulan lalu = akumulasi laba rugi Januari..bulan lalu dari jurnal
+    let ytd = 0;
+    for (let off = -M; off < 0; off++) {
+      genMonth(off).journals.filter((j) => j.cabang === cab).forEach((j) => j.lines.forEach((l) => { if (!isNeraca(l.akun)) ytd += l.k - l.d; }));
+    }
+    o["3-1301"] = -ytd;
+    Object.keys(o).forEach((k) => { o[k] = R(o[k]); });
+    // saldo laba ditahan = penyeimbang
+    const net = Object.values(o).reduce((a, v) => a + v, 0);
+    o["3-1201"] = -net;
+    OPEN[cab] = o;
+    return o;
+  }
+
+  /* ---------------- API ---------------- */
+  const cur = () => genMonth(0);
+  const inScope = (cab) => (j) => cab === "ALL" || !cab || j.cabang === cab;
+  const cabList = (cab) => (cab === "ALL" || !cab ? CAB.map((c) => c.id) : [cab]);
+
+  const journals = (cab = "ALL", off = 0) => genMonth(off).journals.filter(inScope(cab));
+
+  // saldo awal (bertanda: debit +, kredit −) per akun
+  const saldoAwal = (kode, cab = "ALL") => cabList(cab).reduce((a, c) => a + (opening(c)[kode] || 0), 0);
+
+  function mutasi(cab = "ALL", off = 0) {
+    const mv = {};
+    journals(cab, off).forEach((j) => j.lines.forEach((l) => {
+      const x = mv[l.akun] || (mv[l.akun] = { d: 0, k: 0 });
+      x.d += l.d; x.k += l.k;
+    }));
+    return mv;
+  }
+
+  /* Neraca saldo: baris per akun detail. Akun nominal (4–8) saldo awal 0 (periode bulan berjalan). */
+  function trial(cab = "ALL") {
+    const mv = mutasi(cab, 0);
+    return DETAIL.map((a) => {
+      const awal = isNeraca(a.kode) ? saldoAwal(a.kode, cab) : 0;
+      const d = (mv[a.kode] || {}).d || 0, k = (mv[a.kode] || {}).k || 0;
+      return { ...a, awal, d, k, akhir: awal + d - k };
+    });
+  }
+
+  function ledger(kode, cab = "ALL") {
+    const awal = isNeraca(kode) ? saldoAwal(kode, cab) : 0;
+    let run = awal;
+    const rows = [];
+    journals(cab, 0).forEach((j) => j.lines.forEach((l) => {
+      if (l.akun !== kode) return;
+      run += l.d - l.k;
+      rows.push({ tgl: j.tgl, no: j.no, ref: j.ref, ket: j.ket, cabang: j.cabang, sumber: j.sumber, d: l.d, k: l.k, saldo: run });
+    }));
+    return { awal, rows, akhir: run, d: rows.reduce((a, r) => a + r.d, 0), k: rows.reduce((a, r) => a + r.k, 0) };
+  }
+
+  /* Laba rugi dari jurnal. months = jumlah bulan terakhir (termasuk bulan berjalan), off = geser periode */
+  function labaRugi(cab = "ALL", months = 1, off = 0) {
+    const sumK = {};
+    for (let i = 0; i < months; i++) {
+      const mv = mutasi(cab, off - i);
+      Object.entries(mv).forEach(([k, v]) => { sumK[k] = (sumK[k] || 0) + (v.k - v.d); });
+    }
+    const g = (k) => sumK[k] || 0; // saldo sisi kredit (pendapatan +, beban −)
+    const ALL = cab === "ALL";
+    const o = {};
+    o.internal = g("4-1401");
+    o.penjualan = g("4-1101") + g("4-1102") + g("4-1103") + g("4-1104") + g("4-1105");
+    o.jasa = g("4-1201");
+    o.bruto = o.penjualan + o.jasa + (ALL ? 0 : o.internal);
+    o.diskon = -g("4-1301");
+    o.retur = -g("4-1302");
+    o.bersih = o.bruto - o.diskon - o.retur;
+    o.hppObat = -g("5-1101");
+    o.hppInternal = -g("5-1102");
+    o.ed = -g("5-1201");
+    o.opname = -g("5-1202");
+    o.hpp = o.hppObat + o.ed + o.opname + (ALL ? 0 : o.hppInternal);
+    o.lk = o.bersih - o.hpp;
+    o.gaji = -(g("6-1101") + g("6-1102"));
+    o.sewa = -g("6-1201");
+    o.listrik = -g("6-1202");
+    o.susut = -g("6-1301");
+    o.promo = -g("6-1401");
+    o.bank = -g("6-1402");
+    o.lain = -(g("6-1501") + g("6-1502") + g("6-1601") + g("6-1901"));
+    o.beban = o.gaji + o.sewa + o.listrik + o.susut + o.promo + o.bank + o.lain;
+    o.lo = o.lk - o.beban;
+    o.rebate = g("7-1101");
+    o.bunga = g("7-1102");
+    o.bBunga = -g("7-2101");
+    o.pendLain = o.rebate + o.bunga - o.bBunga;
+    o.lsp = o.lo + o.pendLain;
+    o.pajak = -g("8-1101");
+    o.lb = o.lsp - o.pajak;
+    o.raw = sumK;
+    return o;
+  }
+
+  /* Neraca per tanggal (awal bulan / hari ini). Laba bulan berjalan masuk ke Laba Tahun Berjalan. */
+  function neraca(cab = "ALL", when = "akhir") {
+    const tb = trial(cab);
+    const val = {};
+    tb.forEach((r) => { if (isNeraca(r.kode)) val[r.kode] = when === "awal" ? r.awal : r.akhir; });
+    if (when === "akhir") {
+      const lb = tb.filter((r) => !isNeraca(r.kode)).reduce((a, r) => a + r.akhir, 0); // debit − kredit
+      val["3-1301"] = (val["3-1301"] || 0) + lb;
+    }
+    const sumP = (pre) => Object.entries(val).filter(([k]) => k.startsWith(pre)).reduce((a, [, v]) => a + v, 0);
+    const o = {
+      val,
+      kas: sumP("1-11"), piutang: sumP("1-1201") + sumP("1-1202") + sumP("1-1203"), piutangAC: val["1-1204"] || 0,
+      persediaan: sumP("1-13"), dimuka: sumP("1-14"),
+      tetapBruto: sumP("1-21") - (val["1-2109"] || 0), akumSusut: val["1-2109"] || 0,
+      hutang: -(val["2-1101"] || 0), hutangAC: -(val["2-1102"] || 0),
+      pajak: -(sumP("2-12") + sumP("2-13")), bankLoan: -(val["2-2101"] || 0),
+      modal: -(val["3-1101"] || 0), ditahan: -(val["3-1201"] || 0), lbj: -(val["3-1301"] || 0), prive: val["3-1401"] || 0,
+    };
+    o.tetap = o.tetapBruto + o.akumSusut;
+    o.al = o.kas + o.piutang + o.piutangAC + o.persediaan + o.dimuka;
+    o.aset = o.al + o.tetap;
+    o.liabPendek = o.hutang + o.hutangAC + o.pajak;
+    o.liab = o.liabPendek + o.bankLoan;
+    o.ekuitas = o.modal + o.ditahan + o.lbj - o.prive;
+    o.le = o.liab + o.ekuitas;
+    return o;
+  }
+
+  /* Eliminasi konsolidasi (transaksi antar cabang) */
+  function eliminasi() {
+    const lr = labaRugi("ALL");
+    const nr = neraca("ALL");
+    return { penjualanInternal: lr.internal, hppInternal: lr.hppInternal, piutangAC: nr.piutangAC, hutangAC: nr.hutangAC };
+  }
+
+  /* Arus kas metode langsung dari jurnal: setiap baris akun kas (1-11xx) diklasifikasi menurut akun lawannya */
+  function arusKas(cab = "ALL") {
+    const o = { terima: 0, pbf: 0, gaji: 0, ops: 0, pajak: 0, aset: 0, pinjaman: 0, modal: 0, dividen: 0 };
+    journals(cab, 0).forEach((j) => {
+      const cash = j.lines.filter((l) => l.akun.startsWith("1-11")).reduce((a, l) => a + l.d - l.k, 0);
+      if (!cash) return;
+      const has = (pre) => j.lines.some((l) => l.akun.startsWith(pre));
+      const key = has("2-2101") ? "pinjaman" : has("3-1101") ? "modal" : has("3-1401") ? "dividen" : has("1-21") ? "aset"
+        : has("2-1101") ? "pbf" : has("6-1101") ? "gaji" : (has("1-1402") || has("8-") || (has("2-1201") && !has("4-"))) ? "pajak"
+        : (has("4-") || has("1-1201") || has("1-1202") || has("1-1203") || has("7-1102")) ? "terima" : "ops";
+      o[key] += cash;
+    });
+    Object.keys(o).forEach((k) => { o[k] = R(o[k]); });
+    o.op = o.terima + o.pbf + o.gaji + o.ops + o.pajak;
+    o.inv = o.aset;
+    o.dana = o.pinjaman + o.modal + o.dividen;
+    o.naik = o.op + o.inv + o.dana;
+    o.awal = neraca(cab, "awal").kas;
+    o.akhir = neraca(cab, "akhir").kas;
+    return o;
+  }
+
+  /* Tambah jurnal manual → langsung mempengaruhi buku besar, neraca saldo, neraca & laba rugi */
+  function addJournal({ tgl, cabang, ref, ket, lines }) {
+    const L = lines.filter((l) => l.akun && (l.d || l.k)).map((l) => ({ akun: l.akun, d: R(+l.d || 0), k: R(+l.k || 0) }));
+    const d = L.reduce((a, l) => a + l.d, 0), k = L.reduce((a, l) => a + l.k, 0);
+    if (!L.length || d !== k) throw new Error("Jurnal tidak seimbang");
+    if (L.some((l) => !akun(l.akun) || akun(l.akun).header)) throw new Error("Akun tidak valid");
+    const p = cur();
+    const n = p.journals.filter((j) => j.no.startsWith(`JM/${cabang}/`)).length + 1;
+    const j = { no: `JM/${cabang}/${yymm(p.y, p.m)}/${String(n).padStart(3, "0")}`, tgl, cabang, sumber: "Manual", ref: ref || "-", ket, lines: L, status: "Posted", user: "Rina W. (Apoteker PJ)" };
+    p.journals.push(j);
+    p.journals.sort((a, b) => a.tgl.localeCompare(b.tgl) || a.cabang.localeCompare(b.cabang));
+    return j;
+  }
+
+  /* Pemetaan akun otomatis: transaksi operasional → jurnal */
+  const MAPPING = [
+    ["Kasir (POS) – penjualan bebas", "Kas Kecil / Piutang Settlement", "Penjualan Obat Bebas, PPN Keluaran", "1-1101, 1-1203 / 4-1101, 2-1201", "kasir"],
+    ["Resep dokter & racikan", "Kas / Piutang BPJS PRB", "Penjualan Resep/Racikan, Pendapatan Jasa", "1-1101, 1-1202 / 4-1102, 4-1103, 4-1201", "resep"],
+    ["HPP penjualan (FEFO)", "HPP Obat & Alkes", "Persediaan Obat / Alkes", "5-1101 / 1-1301, 1-1302", "stok"],
+    ["Diskon & promo member", "Diskon Penjualan", "(bagian jurnal penjualan)", "4-1301", "kasir"],
+    ["Retur penjualan", "Retur Penjualan, PPN Keluaran", "Kas Kecil", "4-1302, 2-1201 / 1-1101", "retur"],
+    ["Setoran kas & settlement EDC/QRIS", "Bank BCA / Bank Mandiri, Beban MDR", "Kas Kecil / Piutang Settlement", "1-1103, 1-1104, 6-1402 / 1-1101, 1-1203", "shift"],
+    ["Penerimaan barang (faktur PBF)", "Persediaan, PPN Masukan", "Hutang Usaha (PBF)", "1-1301, 1-1302, 1-1401 / 2-1101", "penerimaan"],
+    ["Pembayaran hutang PBF", "Hutang Usaha (PBF)", "Bank BCA", "2-1101 / 1-1103", "hutang"],
+    ["Retur pembelian & rebate PBF", "Hutang Usaha (PBF)", "Persediaan / Rebate PBF", "2-1101 / 1-1301, 7-1101", "returbeli"],
+    ["Mutasi antar cabang (pengirim)", "Piutang Antar Cabang, HPP Internal", "Penjualan Internal, Persediaan", "1-1204, 5-1102 / 4-1401, 1-1301", "mutasi"],
+    ["Mutasi antar cabang (penerima)", "Persediaan Obat", "Hutang Antar Cabang", "1-1301 / 2-1102", "mutasi"],
+    ["Pemusnahan obat kedaluwarsa", "Kerugian Obat Kedaluwarsa", "Persediaan Obat", "5-1201 / 1-1301", "kadaluarsa"],
+    ["Stok opname (selisih)", "Selisih Stok Opname", "Persediaan Obat", "5-1202 / 1-1301", "opname"],
+    ["Penggajian", "Beban Gaji, Beban BPJS", "Bank BCA, Hutang PPh 21", "6-1101, 6-1102 / 1-1103, 2-1202", "pengguna"],
+    ["Penyusutan & akrual akhir bulan", "Beban Penyusutan, Beban lain", "Akumulasi Penyusutan, Beban Masih Harus Dibayar", "6-1301, 6-15xx / 1-2109, 2-1301", "jurnal"],
+    ["Estimasi PPh Badan", "Beban PPh Badan", "Hutang PPh Badan", "8-1101 / 2-1203", "jurnal"],
+  ];
+
+  const SUMBER = ["Kasir & Resep", "Retur Penjualan", "Pembelian", "Hutang Supplier", "Piutang", "Kas & Bank", "Mutasi Cabang", "Kedaluwarsa", "Stok Opname", "Penggajian", "Penyesuaian", "Pajak", "Manual"];
+  const SUMBER_TONE = { "Kasir & Resep": "blue", "Retur Penjualan": "purple", Pembelian: "amber", "Hutang Supplier": "amber", Piutang: "cyan", "Kas & Bank": "teal", "Mutasi Cabang": "pink", Kedaluwarsa: "red", "Stok Opname": "gray", Penggajian: "green", Penyesuaian: "gray", Pajak: "red", Manual: "purple" };
+
+  window.GL = {
+    COA, DETAIL, akun, isNeraca, TIPE, BULAN,
+    periode: () => { const p = cur(); return { label: p.label, from: p.from, to: p.to, y: p.y, m: p.m }; },
+    periodeLalu: () => { const p = genMonth(-1); return { label: p.label, from: p.from, to: p.to }; },
+    journals, saldoAwal, trial, ledger, labaRugi, neraca, eliminasi, addJournal, mutasi, arusKas,
+    MAPPING, SUMBER, SUMBER_TONE,
+    ui: { akun: "1-1103", cabang: null, sumber: "Semua" },
+  };
+})();
+
+</script>
   <!-- halaman -->
   <script>
 /* Login (layar penuh, tanpa app shell) */
@@ -6622,20 +7177,11 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size
   const INTERNAL = [0.024, 0.006, 0.002, 0.003, 0]; // mutasi keluar ke cabang lain (dicatat sbg penjualan internal pada harga pokok)
   const LR_KEYS = ["bruto", "diskon", "retur", "bersih", "hpp", "lk", "gaji", "sewa", "listrik", "susut", "lain", "lo", "pendLain", "lsp", "pajak", "lb"];
 
+  // Sumber: jurnal (window.GL) — konsisten dengan neraca saldo, buku besar & neraca
   function lrKons(n) {
-    const cols = CAB.map((c, i) => {
-      const ext = sum(CAB_BULAN[i].slice(-n));
-      const internal = R(ext * INTERNAL[i]);
-      const diskon = R(ext * 0.021), retur = R(ext * 0.006);
-      const bersih = ext + internal;
-      const hpp = R(ext * HPP_R[i]) + internal;
-      const lk = bersih - hpp;
-      const gaji = R(c.karyawan * 6.4e6 * n), sewa = R(FIX.sewa[i] * n), listrik = R(FIX.listrik[i] * n), susut = R(FIX.susut[i] * n), lain = R(ext * 0.032);
-      const lo = lk - gaji - sewa - listrik - susut - lain;
-      const pendLain = R(ext * 0.0042);
-      const lsp = lo + pendLain;
-      const pajak = Math.max(0, R(lsp * 0.22));
-      return { bruto: bersih + diskon + retur, diskon, retur, bersih, hpp, lk, gaji, sewa, listrik, susut, lain, lo, pendLain, lsp, pajak, lb: lsp - pajak, internal };
+    const cols = CAB.map((c) => {
+      const o = GL.labaRugi(c.id, n);
+      return { bruto: o.bruto, diskon: o.diskon, retur: o.retur, bersih: o.bersih, hpp: o.hpp, lk: o.lk, gaji: o.gaji, sewa: o.sewa, listrik: o.listrik, susut: o.susut, lain: o.promo + o.bank + o.lain, lo: o.lo, pendLain: o.pendLain, lsp: o.lsp, pajak: o.pajak, lb: o.lb, internal: o.internal };
     });
     const tot = sum(cols, (c) => c.internal);
     const elim = {};
@@ -6675,40 +7221,26 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size
   const konsHeads = [...CAB.map((c) => `<span title="${esc(c.nama)}">${esc(cabShort(c.id))}</span>`), "Eliminasi", "Konsolidasi"];
 
   function neraca() {
-    const kas = [412e6, 268e6, 214e6, 236e6, 151e6];
-    const piutang = [186e6, 62e6, 44e6, 51e6, 38e6];
-    const piutangAC = [96e6, 12e6, 0, 0, 0];
-    const tetap = [1420e6, 860e6, 740e6, 810e6, 520e6];
-    const hutangAC = [0, 0, 27e6, 34e6, 47e6];
-    const pajak = [58e6, 34e6, 28e6, 31e6, 19e6];
-    const totHutangPbf = sum(DB.supplier, (s) => s.hutang);
-    const cols = CAB.map((c, i) => {
-      const o = { kas: kas[i], piutang: piutang[i], piutangAC: piutangAC[i], persediaan: stokCab(c.id), tetap: tetap[i], hutang: R(totHutangPbf * share(c.id)), hutangAC: hutangAC[i], pajak: pajak[i] };
-      o.al = o.kas + o.piutang + o.piutangAC + o.persediaan;
-      o.aset = o.al + o.tetap;
-      o.liab = o.hutang + o.hutangAC + o.pajak;
-      o.ekuitas = o.aset - o.liab;
-      o.le = o.liab + o.ekuitas;
-      return o;
-    });
-    const ac = sum(piutangAC);
-    const elim = { piutangAC: -ac, al: -ac, aset: -ac, hutangAC: -ac, liab: -ac, le: -ac };
-    const keys = Object.keys(cols[0]);
+    const KEYS = ["kas", "piutang", "piutangAC", "persediaan", "dimuka", "al", "tetap", "aset", "hutang", "hutangAC", "pajak", "liabPendek", "bankLoan", "liab", "ekuitas", "le"];
+    const cols = CAB.map((c) => { const n = GL.neraca(c.id); const o = {}; KEYS.forEach((k) => { o[k] = n[k]; }); return o; });
+    const ac = sum(cols, (c) => c.piutangAC);
+    const elim = { piutangAC: -ac, al: -ac, aset: -ac, hutangAC: -ac, liabPendek: -ac, liab: -ac, le: -ac };
     const kons = {};
-    keys.forEach((k) => { kons[k] = sum(cols, (c) => c[k]) + (elim[k] || 0); });
+    KEYS.forEach((k) => { kons[k] = sum(cols, (c) => c[k]) + (elim[k] || 0); });
     return { cols, elim, kons };
   }
   const NERACA_DEF = [
     { g: "Aset lancar" },
-    { k: "kas", l: "Kas & bank" }, { k: "piutang", l: "Piutang usaha (B2B, settlement kartu/QRIS)" }, { k: "piutangAC", l: "Piutang antar cabang" },
-    { k: "persediaan", l: "Persediaan obat & alkes" }, { k: "al", l: "Total aset lancar", sub: 1 },
+    { k: "kas", l: "Kas & bank" }, { k: "piutang", l: "Piutang usaha (B2B, BPJS, settlement kartu/QRIS)" }, { k: "piutangAC", l: "Piutang antar cabang" },
+    { k: "persediaan", l: "Persediaan obat & alkes" }, { k: "dimuka", l: "Pajak & biaya dibayar dimuka" }, { k: "al", l: "Total aset lancar", sub: 1 },
     { g: "Aset tidak lancar" },
     { k: "tetap", l: "Aset tetap (neto)" }, { k: "aset", l: "Total aset", sub: 1 },
     { g: "Liabilitas" },
     { k: "hutang", l: "Hutang usaha (PBF)" }, { k: "hutangAC", l: "Hutang antar cabang" }, { k: "pajak", l: "Hutang pajak & beban akrual" },
+    { k: "liabPendek", l: "Total liabilitas jangka pendek", sub: 1 }, { k: "bankLoan", l: "Hutang bank jangka panjang" },
     { k: "liab", l: "Total liabilitas", sub: 1 },
     { g: "Ekuitas" },
-    { k: "ekuitas", l: "Ekuitas (modal disetor & saldo laba)" },
+    { k: "ekuitas", l: "Ekuitas (modal, saldo laba & laba berjalan)" },
     { k: "le", l: "Total liabilitas & ekuitas", foot: 1 },
   ];
 
@@ -6717,37 +7249,30 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size
       const P = { bulan: lrKons(1), kuartal: lrKons(3), tahun: lrKons(12) };
       const K = P.bulan.kons;
       const N = neraca();
-      const kasAkhir = N.kons.kas;
+      const AK = GL.arusKas("ALL");
       const ak = [
         { g: "Arus kas dari aktivitas operasi" },
-        { k: "terima", l: "Penerimaan dari pelanggan", v: K.bersih - 18.4e6 },
-        { k: "pbf", l: "Pembayaran ke PBF / pemasok", v: -(K.hpp + 42e6 - 25e6) },
-        { k: "gaji", l: "Pembayaran gaji & tunjangan", v: -K.gaji },
-        { k: "ops", l: "Pembayaran sewa, listrik & beban operasional", v: -(K.sewa + K.listrik + K.lain) },
-        { k: "pajak", l: "Pembayaran pajak (angsuran PPh 25)", v: -R(K.pajak * 0.9) },
+        { k: "terima", l: "Penerimaan dari pelanggan (tunai, settlement kartu/QRIS, B2B, BPJS)" },
+        { k: "pbf", l: "Pembayaran ke PBF / pemasok" },
+        { k: "gaji", l: "Pembayaran gaji & tunjangan" },
+        { k: "ops", l: "Pembayaran sewa, listrik & beban operasional" },
+        { k: "pajak", l: "Pembayaran pajak (PPN, PPh 25)" },
         { k: "op", l: "Arus kas bersih dari aktivitas operasi", sub: 1 },
         { g: "Arus kas dari aktivitas investasi" },
-        { k: "aset", l: "Pembelian aset tetap (lemari pendingin vaksin, renovasi)", v: -68.5e6 },
-        { k: "sistem", l: "Pengembangan sistem POS & perangkat kasir", v: -12e6 },
+        { k: "aset", l: "Pembelian aset tetap" },
         { k: "inv", l: "Arus kas bersih dari aktivitas investasi", sub: 1 },
         { g: "Arus kas dari aktivitas pendanaan" },
-        { k: "pinjaman", l: "Pembayaran pokok pinjaman bank", v: -45e6 },
-        { k: "dividen", l: "Pembagian dividen interim", v: -150e6 },
+        { k: "pinjaman", l: "Pembayaran pokok & bunga pinjaman bank" },
+        { k: "modal", l: "Setoran modal" },
+        { k: "dividen", l: "Pembagian dividen interim" },
         { k: "dana", l: "Arus kas bersih dari aktivitas pendanaan", sub: 1 },
         { g: "Ringkasan" },
         { k: "naik", l: "Kenaikan (penurunan) kas bersih", sub: 1 },
         { k: "awal", l: "Kas & bank awal periode" },
         { k: "akhir", l: "Kas & bank akhir periode", foot: 1 },
       ];
-      const akv = {};
-      ak.forEach((d) => { if (d.v !== undefined) akv[d.k] = R(d.v); });
-      akv.op = akv.terima + akv.pbf + akv.gaji + akv.ops + akv.pajak;
-      akv.inv = akv.aset + akv.sistem;
-      akv.dana = akv.pinjaman + akv.dividen;
-      akv.naik = akv.op + akv.inv + akv.dana;
-      akv.akhir = kasAkhir;
-      akv.awal = kasAkhir - akv.naik;
-      const tren = DB.bulanan;
+      const akv = AK;
+      const tren = BULAN.map((bl, i) => { const o = GL.labaRugi("ALL", 1, i - LAST); return { bulan: bl, pendapatan: o.bersih, hpp: o.hpp, biaya: o.beban, laba: o.lo }; });
       const trenT = { p: sum(tren, (b) => b.pendapatan), h: sum(tren, (b) => b.hpp), b: sum(tren, (b) => b.biaya), l: sum(tren, (b) => b.laba) };
 
       return `
@@ -6983,28 +7508,9 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size
      5. LABA RUGI (entitas tunggal: cabang aktif atau gabungan)
      ===================================================================== */
   const BEBAN = [["gaji", "Gaji & tunjangan karyawan", 0.5], ["sewa", "Sewa gedung", 0.17], ["listrik", "Listrik, air & internet", 0.07], ["susut", "Penyusutan aset tetap", 0.06], ["promo", "Pemasaran & promosi", 0.06], ["bank", "Administrasi bank & MDR", 0.06], ["lain", "Beban operasional lain", 0.08]];
+  // Sumber: jurnal (window.GL). m = indeks DB.bulanan (LAST = bulan berjalan s.d. hari ini)
   function lrBulan(st, m) {
-    const f = share(st.cabang);
-    const b = DB.bulanan[m];
-    const r = mk(2000 + m);
-    const o = {};
-    o.bersih = R(b.pendapatan * f);
-    o.diskon = R(o.bersih * r.f(0.019, 0.024));
-    o.retur = R(o.bersih * r.f(0.004, 0.007));
-    o.bruto = o.bersih + o.diskon + o.retur;
-    o.hpp = R(b.hpp * f);
-    o.lk = o.bersih - o.hpp;
-    o.beban = R(b.biaya * f);
-    let rest = o.beban;
-    BEBAN.forEach(([k, , w], i) => { o[k] = i === BEBAN.length - 1 ? rest : R(o.beban * w * r.f(0.94, 1.06)); rest -= o[k]; });
-    o.lo = o.lk - o.beban;
-    o.rebate = R(o.bersih * r.f(0.003, 0.0045));
-    o.bunga = R(o.bersih * 0.0006);
-    o.bBunga = R(o.bersih * 0.0011);
-    o.lsp = o.lo + o.rebate + o.bunga - o.bBunga;
-    o.pajak = Math.max(0, R(o.lsp * 0.22));
-    o.lb = o.lsp - o.pajak;
-    return o;
+    return GL.labaRugi(st.cabang, 1, m - LAST);
   }
   const LR1 = [
     { g: "Pendapatan" },
@@ -7046,7 +7552,7 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size
       const foot = LR1.filter((d) => d.foot).map(row).join("");
 
       return `
-      ${header("Laba Rugi", `Laporan laba rugi <b>${esc(state.cabang === "ALL" ? "gabungan semua cabang (setelah eliminasi)" : scopeName(state))}</b> · ${NAMA_BULAN[M0]} ${Y} dibanding bulan lalu`)}
+      ${header("Laba Rugi", `Laporan laba rugi <b>${esc(state.cabang === "ALL" ? "gabungan semua cabang (setelah eliminasi)" : scopeName(state))}</b> · ${NAMA_BULAN[M0]} ${Y} (s.d. ${tgl(DB.TODAY)}) dibanding bulan lalu. Disusun dari jurnal umum & neraca saldo.`)}
       ${fbar(select("Bandingkan dengan", ["Bulan lalu", "Bulan yang sama tahun lalu", "Anggaran (budget)"]))}
 
       <div class="grid g-4">
@@ -7061,7 +7567,7 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size
           body: `<div class="table-wrap"><table class="tbl compact">
             <thead><tr><th>Keterangan <span class="t-sub">(Rp ribuan)</span></th><th class="num">Bulan ini</th><th class="num">%</th><th class="num">Bulan lalu</th><th class="num">%</th><th class="num">Selisih</th><th class="num">Perubahan</th></tr></thead>
             <tbody>${body}</tbody><tfoot>${foot}</tfoot></table></div>`,
-          foot: `<span class="small muted">${icon("info")} PPh Badan tarif umum 22% (estimasi, sebelum koreksi fiskal). Angka dalam kurung adalah pengurang.</span>`,
+          foot: `<span class="small muted">${icon("info")} Bulan ini = bulan berjalan s.d. hari ini. PPh Badan tarif umum 22% (estimasi, sebelum koreksi fiskal). Angka dalam kurung adalah pengurang.</span><span class="spacer"></span>${btn("Jurnal Umum", "info", { size: "sm", icon: "edit_note", attrs: 'data-go="jurnal"' })}${btn("Neraca Saldo", "purple", { size: "sm", icon: "balance", attrs: 'data-go="neracasaldo"' })}${btn("Neraca", "primary", { size: "sm", icon: "account_balance", attrs: 'data-go="neraca"' })}`,
         })}
       <div class="grid g-3-2">
           ${card({
@@ -7858,6 +8364,629 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size
         },
       })));
     },
+  };
+})();
+
+</script>
+  <script>
+/* Akuntansi: Chart of Account, Jurnal Umum, Kartu Buku Besar, Neraca Saldo, Neraca.
+   Semua halaman membaca window.GL (assets/js/akuntansi.js) sehingga saling terintegrasi
+   dengan Laba Rugi & Laporan Konsolidasi. */
+(function () {
+  window.PAGES = window.PAGES || {};
+  const { icon, btn, card, stat, rp, num, pct, short, badge, esc, tgl, tabs, input, select, alert, modal, toast, confirmBox, chart, rpTick, areaFill, legend } = UI;
+
+  /* ---------- helper ---------- */
+  const acc = (v) => (Math.round(v) === 0 ? `<span class="muted">—</span>` : v < 0 ? `(${num(-v)})` : num(v));
+  const dcell = (v) => `<td class="num">${v > 0 ? num(v) : `<span class="muted">—</span>`}</td>`;
+  const dk = (v) => (Math.round(v) === 0 ? `${dcell(0)}${dcell(0)}` : v > 0 ? `${dcell(v)}${dcell(0)}` : `${dcell(0)}${dcell(-v)}`);
+  const scopeLbl = (st) => (st.cabang === "ALL" ? "Gabungan semua cabang" : UI.cabangNama(st.cabang));
+  const scopeCab = (st) => st.cabang || "ALL";
+  const cabShort = (id) => UI.cabangNama(id).replace(/^Cabang\s+/, "");
+  const TIPE_TONE = { Aset: "blue", Liabilitas: "amber", Ekuitas: "purple", Pendapatan: "green", HPP: "red", Beban: "pink", "Lain-lain": "cyan", Pajak: "gray" };
+  const tipeBadge = (t) => badge(t, TIPE_TONE[t] || "gray");
+  const normalBadge = (n) => badge(n === "D" ? "Debit" : "Kredit", n === "D" ? "blue" : "amber");
+  const sumberBadge = (s) => badge(s, GL.SUMBER_TONE[s] || "gray");
+  const cabBadge = (id) => `<span class="badge gray">${esc(id)}</span>`;
+  // saldo ditampilkan menurut sisi normal akun (positif = normal)
+  const normalSaldo = (a, v) => (a.normal === "D" ? v : -v);
+  const akunOptions = (sel) => {
+    const groups = {};
+    GL.DETAIL.forEach((a) => { (groups[a.tipe] = groups[a.tipe] || []).push(a); });
+    return Object.entries(groups).map(([t, list]) => `<optgroup label="${esc(t)}">${list.map((a) => `<option value="${a.kode}" ${a.kode === sel ? "selected" : ""}>${a.kode} · ${esc(a.nama)}</option>`).join("")}</optgroup>`).join("");
+  };
+  const toLedger = (kode) => `data-ledger="${kode}"`;
+  const bindLedgerLinks = (root) => root.querySelectorAll("[data-ledger]").forEach((b) => b.addEventListener("click", () => { GL.ui.akun = b.dataset.ledger; UI.modal.close(); APP.go("bukubesar"); }));
+  const periodeTxt = () => { const p = GL.periode(); return `${p.label} (1–${Number(p.to.slice(8))})`; };
+  const integrasi = (active) => {
+    const items = [["coa", "Chart of Account", "account_tree"], ["jurnal", "Jurnal Umum", "edit_note"], ["bukubesar", "Buku Besar", "menu_book"], ["neracasaldo", "Neraca Saldo", "balance"], ["lap-labarugi", "Laba Rugi", "trending_up"], ["neraca", "Neraca", "account_balance"], ["lap-konsolidasi", "Konsolidasi", "hub"]];
+    return `<div class="card" style="padding:12px 16px"><div class="row" style="gap:6px">
+      <span class="small muted strong" style="margin-right:4px">${icon("sync_alt")} Alur terintegrasi:</span>
+      ${items.map(([id, l, ic], i) => `${i ? `<span class="muted">${icon("chevron_right")}</span>` : ""}<button type="button" class="chip ${id === active ? "active" : ""}" data-go="${id}">${icon(ic)}${l}</button>`).join("")}
+    </div></div>`;
+  };
+
+  /* =====================================================================
+     1. CHART OF ACCOUNT
+     ===================================================================== */
+  window.PAGES.coa = {
+    render({ state }) {
+      const cab = scopeCab(state);
+      const tb = GL.trial(cab);
+      const saldo = {};
+      tb.forEach((r) => { saldo[r.kode] = r.akhir; });
+      // roll-up saldo ke akun induk
+      GL.COA.slice().reverse().forEach((a) => { if (a.parent) saldo[a.parent] = (saldo[a.parent] || 0) + (saldo[a.kode] || 0); });
+      const det = GL.DETAIL.length;
+      const tot = tb.reduce((a, r) => a + r.akhir, 0);
+      const count = (t) => GL.DETAIL.filter((a) => a.tipe === t).length;
+
+      const rows = GL.COA.map((a) => {
+        const s = normalSaldo(a, saldo[a.kode] || 0);
+        return `<tr data-tipe="${a.tipe}" data-q="${esc((a.kode + " " + a.nama).toLowerCase())}" class="${a.header && a.level <= 2 ? "group" : ""}">
+          <td><span class="mono ${a.header ? "strong" : ""}" style="padding-left:${(a.level - 1) * 16}px">${a.kode}</span></td>
+          <td class="${a.header ? "strong" : ""}" style="padding-left:${(a.level - 1) * 16 + 14}px">${a.header ? icon(a.level === 1 ? "folder" : "folder_open", "") + " " : ""}${esc(a.nama)}</td>
+          <td>${a.level > 1 ? tipeBadge(a.tipe) : ""}</td>
+          <td>${a.level > 1 ? `<span class="small">${a.laporan}</span>` : ""}</td>
+          <td>${a.header ? badge("Header", "gray") : normalBadge(a.normal)}</td>
+          <td class="num ${a.header ? "strong" : ""}">${acc(s)}</td>
+          <td class="actions">${a.header ? "" : `<div class="btn-group">${btn("", "info", { icon: "menu_book", size: "sm", title: "Buka buku besar", attrs: toLedger(a.kode) })}${btn("", "warning", { icon: "edit", size: "sm", title: "Ubah akun", attrs: `data-edit-akun="${a.kode}"` })}${btn("", "danger", { icon: "block", size: "sm", title: "Nonaktifkan", attrs: `data-toast="Akun ${a.kode} tidak dapat dinonaktifkan karena masih bersaldo / dipakai pemetaan otomatis" data-tone="warn"` })}</div>`}</td>
+        </tr>`;
+      }).join("");
+
+      return `
+      ${UI.pageHeader({
+        title: "Chart of Account (COA)",
+        sub: `Bagan akun standar apotek (mengacu SAK EP) untuk ${esc(scopeLbl(state))}. Saldo per ${tgl(GL.periode().to)} dihitung langsung dari jurnal.`,
+        crumbs: ["Akuntansi", "Chart of Account"],
+        actions: `${btn("Tambah Akun", "success", { icon: "add", attrs: 'id="coa-add"' })}${btn("Import Excel", "teal", { icon: "upload_file", attrs: 'data-toast="Template impor COA (.xlsx) siap diunggah" data-tone="info"' })}${btn("Ekspor", "glass", { icon: "download", attrs: 'data-toast="COA diekspor ke Excel"' })}`,
+      })}
+      ${integrasi("coa")}
+      <div class="grid g-4">
+        ${stat({ label: "Akun detail (posting)", value: num(det), icon: "account_tree", tone: "primary", foot: `${GL.COA.length - det} akun header · 4 level`, hero: true })}
+        ${stat({ label: "Akun neraca", value: num(count("Aset") + count("Liabilitas") + count("Ekuitas")), icon: "account_balance", tone: "info", foot: `Aset ${count("Aset")} · Liabilitas ${count("Liabilitas")} · Ekuitas ${count("Ekuitas")}` })}
+        ${stat({ label: "Akun laba rugi", value: num(det - count("Aset") - count("Liabilitas") - count("Ekuitas")), icon: "trending_up", tone: "success", foot: `Pendapatan ${count("Pendapatan")} · HPP ${count("HPP")} · Beban ${count("Beban")}` })}
+        ${stat({ label: "Kontrol saldo", value: Math.round(tot) === 0 ? "Seimbang" : rp(tot), icon: Math.round(tot) === 0 ? "verified" : "error", tone: Math.round(tot) === 0 ? "teal" : "danger", foot: "Σ debit − Σ kredit seluruh akun = 0" })}
+      </div>
+      <div>${tabs("coa-tab", [{ id: "daftar", label: "Daftar Akun", icon: "list" }, { id: "map", label: "Pemetaan Jurnal Otomatis", icon: "hub", n: GL.MAPPING.length }, { id: "struktur", label: "Struktur Kode", icon: "schema" }], "daftar")}</div>
+
+      <div data-panel-group="coa-tab" data-panel="daftar">
+        ${card({
+          title: "Daftar akun", desc: "Klik ikon buku untuk membuka kartu buku besar akun", icon: "list_alt", flush: true,
+          tools: `<div class="input-icon" style="min-width:200px">${icon("search")}<input id="coa-q" class="input sm" type="search" placeholder="Cari kode / nama akun" aria-label="Cari akun"></div>`,
+          body: `<div style="padding:12px 20px 4px"><div class="chips" data-chip-group="coa-tipe" id="coa-tipe">${["Semua", ...Object.values(GL.TIPE)].map((t, i) => `<button type="button" class="chip ${i ? "" : "active"}" data-t="${t}">${t}</button>`).join("")}</div></div>
+            <div class="table-wrap"><table class="tbl compact" id="coa-table"><thead><tr><th>Kode</th><th>Nama akun</th><th>Tipe</th><th>Laporan</th><th>Saldo normal</th><th class="num">Saldo (Rp)</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
+        })}
+      </div>
+
+      <div data-panel-group="coa-tab" data-panel="map" hidden>
+        ${card({
+          title: "Pemetaan jurnal otomatis", desc: "Setiap transaksi operasional langsung membentuk jurnal ke akun berikut (dapat diubah per cabang)", icon: "hub", tone: "purple", flush: true,
+          body: UI.table({
+            columns: [
+              { label: "Transaksi / modul", render: (r) => `<b>${esc(r[0])}</b>` },
+              { label: "Debit", render: (r) => esc(r[1]) },
+              { label: "Kredit", render: (r) => esc(r[2]) },
+              { label: "Kode akun (D / K)", render: (r) => `<span class="mono small">${esc(r[3])}</span>` },
+              { label: "Status", render: () => badge("Otomatis", "green", { dot: true }) },
+              { label: "", cls: "actions", render: (r) => btn("Buka modul", "info", { size: "sm", icon: "open_in_new", attrs: `data-go="${r[4]}"` }) },
+            ],
+            rows: GL.MAPPING,
+          }),
+          foot: `<span class="small muted">${icon("info")} Jurnal otomatis diposting real-time saat transaksi disimpan. Perubahan pemetaan hanya berlaku untuk transaksi berikutnya dan tercatat di log aktivitas.</span>`,
+        })}
+      </div>
+
+      <div data-panel-group="coa-tab" data-panel="struktur" hidden>
+        <div class="grid g-2">
+          ${card({
+            title: "Format kode akun", icon: "schema", tone: "cyan",
+            body: `<div class="stack">
+              <div class="mono" style="font-size:22px;font-weight:700">1 - 1 1 0 3</div>
+              <dl class="kv" style="grid-template-columns:auto 1fr">
+                <dt>Digit 1</dt><dd style="text-align:left">Kelompok (1 Aset … 8 Pajak)</dd>
+                <dt>Digit 2</dt><dd style="text-align:left">Golongan (lancar / tidak lancar)</dd>
+                <dt>Digit 3</dt><dd style="text-align:left">Sub golongan (kas, piutang, persediaan)</dd>
+                <dt>Digit 4–5</dt><dd style="text-align:left">Nomor urut akun detail</dd>
+              </dl>
+              ${alert("info", "lightbulb", "Hanya akun detail yang bisa diposting", "Akun header menjumlahkan saldo akun di bawahnya secara otomatis.")}
+            </div>`,
+          })}
+          ${card({
+            title: "Kelompok akun", icon: "category", flush: true,
+            body: UI.table({
+              columns: [{ label: "Kode", render: (r) => `<span class="mono strong">${r[0]}</span>` }, { label: "Kelompok", render: (r) => tipeBadge(r[1]) }, { label: "Saldo normal", render: (r) => normalBadge(r[2]) }, { label: "Laporan", key: 3 }],
+              rows: [["1", "Aset", "D", "Neraca"], ["2", "Liabilitas", "K", "Neraca"], ["3", "Ekuitas", "K", "Neraca"], ["4", "Pendapatan", "K", "Laba Rugi"], ["5", "HPP", "D", "Laba Rugi"], ["6", "Beban", "D", "Laba Rugi"], ["7", "Lain-lain", "K", "Laba Rugi"], ["8", "Pajak", "D", "Laba Rugi"]],
+            }),
+          })}
+        </div>
+      </div>`;
+    },
+    mount(root) {
+      bindLedgerLinks(root);
+      const q = root.querySelector("#coa-q");
+      let tipe = "Semua";
+      const apply = () => {
+        const v = q.value.trim().toLowerCase();
+        root.querySelectorAll("#coa-table tbody tr").forEach((tr) => {
+          const okT = tipe === "Semua" || tr.dataset.tipe === tipe;
+          const okQ = !v || tr.dataset.q.includes(v);
+          tr.hidden = !(okT && okQ);
+        });
+      };
+      q.addEventListener("input", apply);
+      root.querySelector("#coa-tipe").addEventListener("click", (e) => { const c = e.target.closest("[data-t]"); if (c) { tipe = c.dataset.t; apply(); } });
+      const openForm = (a) => {
+        const heads = GL.COA.filter((x) => x.header && x.level > 1);
+        modal.open({
+          title: a ? `Ubah akun ${a.kode}` : "Tambah akun", icon: "account_tree",
+          body: `<div class="form-grid">
+            ${input("Kode akun", { value: a ? a.kode : "1-1105", hint: "Format X-XXXX, unik" })}
+            ${input("Nama akun", { value: a ? a.nama : "Bank BRI - Operasional Cabang" })}
+            ${select("Akun induk", heads.map((h) => ({ v: h.kode, l: `${h.kode} · ${h.nama}` })), { value: a ? a.parent : "1-1100" })}
+            ${select("Saldo normal", [{ v: "D", l: "Debit" }, { v: "K", l: "Kredit" }], { value: a ? a.normal : "D" })}
+            ${select("Berlaku untuk", ["Semua cabang", ...DB.cabang.map((c) => c.nama)])}
+            ${input("Saldo awal", { value: "0", hint: "Diisi saat migrasi; selanjutnya saldo dari jurnal" })}
+            <label class="check full"><input type="checkbox" checked> Akun aktif & dapat dipilih pada jurnal manual</label>
+          </div>`,
+          foot: `${btn("Batal", "light", { attrs: "data-close" })}${btn("Simpan Akun", "primary", { icon: "save", attrs: `data-toast="Akun ${a ? "diperbarui" : "ditambahkan"}" data-close` })}`,
+        });
+      };
+      root.querySelector("#coa-add").addEventListener("click", () => openForm(null));
+      root.querySelectorAll("[data-edit-akun]").forEach((b) => b.addEventListener("click", () => openForm(GL.akun(b.dataset.editAkun))));
+    },
+  };
+
+  /* =====================================================================
+     2. JURNAL UMUM
+     ===================================================================== */
+  let jFilter = { q: "", sumber: "Semua", limit: 25 };
+  const journalRows = (list) => list.map((j) => j.lines.map((l, i) => {
+    const a = GL.akun(l.akun);
+    return `<tr class="${i === 0 ? "j-first" : ""}" ${i === 0 ? `style="border-top:2px solid var(--border-strong)"` : ""}>
+      <td class="nowrap">${i === 0 ? `<b>${tgl(j.tgl)}</b>` : ""}</td>
+      <td>${i === 0 ? `<button type="button" class="btn light sm" data-jv="${j.no}" style="font-family:var(--mono)">${j.no}</button><div class="t-sub">${esc(j.ref)}</div>` : ""}</td>
+      <td style="padding-left:${l.k ? 34 : 14}px"><button type="button" class="mono small" ${toLedger(l.akun)} style="background:none;border:0;color:var(--c-primary-2);cursor:pointer;padding:0">${l.akun}</button> ${esc(a.nama)}</td>
+      <td>${i === 0 ? `${esc(j.ket)}<div class="row" style="gap:4px;margin-top:4px">${cabBadge(j.cabang)} ${sumberBadge(j.sumber)}</div>` : ""}</td>
+      ${dcell(l.d)}${dcell(l.k)}
+    </tr>`;
+  }).join("")).join("");
+
+  function jurnalManual(state, preset) {
+    const cab = state.cabang === "ALL" ? "PST" : state.cabang;
+    const P = GL.periode();
+    const lines = preset ? preset.lines.map((l) => ({ ...l })) : [{ akun: "6-1501", d: 850000, k: 0 }, { akun: "1-1101", d: 0, k: 850000 }];
+    const TPL = {
+      "": null,
+      sewa: { ket: "Pembayaran sewa gedung 12 bulan dibayar dimuka", lines: [{ akun: "1-1403", d: 312000000, k: 0 }, { akun: "1-1103", d: 0, k: 312000000 }] },
+      modal: { ket: "Setoran tambahan modal pemegang saham", lines: [{ akun: "1-1103", d: 250000000, k: 0 }, { akun: "3-1101", d: 0, k: 250000000 }] },
+      aset: { ket: "Pembelian lemari pendingin vaksin (medical refrigerator)", lines: [{ akun: "1-2101", d: 38500000, k: 0 }, { akun: "1-1103", d: 0, k: 38500000 }] },
+      piutang: { ket: "Penghapusan piutang klinik tak tertagih", lines: [{ akun: "6-1901", d: 2750000, k: 0 }, { akun: "1-1201", d: 0, k: 2750000 }] },
+    };
+    const el = modal.open({
+      title: preset ? "Jurnal balik (reversal)" : "Buat jurnal manual", icon: "edit_note", size: "xl",
+      body: `
+        <div class="form-grid cols-4">
+          ${input("Tanggal", { id: "jm-tgl", type: "date", value: P.to, attrs: `min="${P.from}" max="${P.to}"` })}
+          ${select("Cabang", DB.cabang.map((c) => ({ v: c.id, l: c.nama })), { id: "jm-cab", value: preset ? preset.cabang : cab })}
+          ${input("No. bukti / referensi", { id: "jm-ref", value: preset ? preset.ref : "MEMO/KEU/0928" })}
+          ${select("Template", [{ v: "", l: "— Tanpa template —" }, { v: "sewa", l: "Bayar sewa dibayar dimuka" }, { v: "modal", l: "Setoran modal" }, { v: "aset", l: "Pembelian aset tetap" }, { v: "piutang", l: "Hapus piutang tak tertagih" }], { id: "jm-tpl" })}
+          ${input("Keterangan", { id: "jm-ket", value: preset ? preset.ket : "Pembelian ATK tambahan untuk kasir", cls: "full" })}
+        </div>
+        <div class="table-wrap"><table class="tbl compact"><thead><tr><th style="min-width:280px">Akun</th><th class="num" style="min-width:150px">Debit</th><th class="num" style="min-width:150px">Kredit</th><th></th></tr></thead>
+          <tbody id="jm-lines"></tbody>
+          <tfoot><tr><td>${btn("Tambah baris", "success", { size: "sm", icon: "add", attrs: 'id="jm-add"' })}</td><td class="num" id="jm-td"></td><td class="num" id="jm-tk"></td><td></td></tr></tfoot></table></div>
+        <div id="jm-check"></div>`,
+      foot: `${btn("Batal", "light", { attrs: "data-close" })}${btn("Simpan Draft", "warning", { icon: "draft", attrs: 'data-toast="Draft jurnal disimpan (belum memengaruhi saldo)" data-close' })}${btn("Posting Jurnal", "primary", { icon: "task_alt", attrs: 'id="jm-post"' })}`,
+    });
+    const tbody = el.querySelector("#jm-lines");
+    const draw = () => {
+      tbody.innerHTML = lines.map((l, i) => `<tr>
+        <td><select class="select sm" data-i="${i}" data-f="akun" aria-label="Akun baris ${i + 1}">${akunOptions(l.akun)}</select></td>
+        <td><input class="input sm num" data-i="${i}" data-f="d" inputmode="numeric" value="${l.d ? num(l.d) : ""}" placeholder="0" aria-label="Debit baris ${i + 1}"></td>
+        <td><input class="input sm num" data-i="${i}" data-f="k" inputmode="numeric" value="${l.k ? num(l.k) : ""}" placeholder="0" aria-label="Kredit baris ${i + 1}"></td>
+        <td class="actions">${btn("", "danger", { icon: "delete", size: "sm", title: "Hapus baris", attrs: `data-del="${i}"` })}</td></tr>`).join("");
+      calc();
+    };
+    const calc = () => {
+      const d = lines.reduce((a, l) => a + (+l.d || 0), 0), k = lines.reduce((a, l) => a + (+l.k || 0), 0);
+      el.querySelector("#jm-td").innerHTML = `<b>${rp(d)}</b>`;
+      el.querySelector("#jm-tk").innerHTML = `<b>${rp(k)}</b>`;
+      const ok = d === k && d > 0;
+      el.querySelector("#jm-check").innerHTML = ok
+        ? alert("success", "check_circle", "Jurnal seimbang", `Total debit = total kredit = ${rp(d)}. Setelah diposting, saldo langsung masuk ke buku besar, neraca saldo, laba rugi & neraca.`)
+        : alert("danger", "error", "Jurnal belum seimbang", `Selisih ${rp(Math.abs(d - k))}. Lengkapi baris debit/kredit sebelum posting.`);
+      el.querySelector("#jm-post").disabled = !ok;
+    };
+    tbody.addEventListener("input", (e) => {
+      const t = e.target.closest("[data-f]"); if (!t) return;
+      const l = lines[+t.dataset.i];
+      if (t.dataset.f === "akun") l.akun = t.value;
+      else {
+        const v = parseInt(t.value.replace(/\D/g, ""), 10) || 0;
+        const other = t.dataset.f === "d" ? "k" : "d";
+        l[t.dataset.f] = v; t.value = v ? num(v) : "";
+        if (v && l[other]) { l[other] = 0; const o = tbody.querySelector(`[data-i="${t.dataset.i}"][data-f="${other}"]`); if (o) o.value = ""; }
+      }
+      calc();
+    });
+    tbody.addEventListener("change", (e) => { const t = e.target.closest('[data-f="akun"]'); if (t) lines[+t.dataset.i].akun = t.value; });
+    tbody.addEventListener("click", (e) => { const b = e.target.closest("[data-del]"); if (b && lines.length > 2) { lines.splice(+b.dataset.del, 1); draw(); } });
+    el.querySelector("#jm-add").addEventListener("click", () => { lines.push({ akun: "6-1901", d: 0, k: 0 }); draw(); });
+    el.querySelector("#jm-tpl").addEventListener("change", (e) => {
+      const t = TPL[e.target.value]; if (!t) return;
+      lines.splice(0, lines.length, ...t.lines.map((l) => ({ ...l })));
+      el.querySelector("#jm-ket").value = t.ket; draw();
+    });
+    el.querySelector("#jm-post").addEventListener("click", () => {
+      try {
+        const j = GL.addJournal({ tgl: el.querySelector("#jm-tgl").value, cabang: el.querySelector("#jm-cab").value, ref: el.querySelector("#jm-ref").value, ket: el.querySelector("#jm-ket").value, lines });
+        modal.close();
+        toast(`Jurnal ${j.no} diposting. Buku besar, neraca saldo, laba rugi & neraca diperbarui.`, "success");
+        APP.render();
+      } catch (err) { toast(err.message, "danger"); }
+    });
+    draw();
+  }
+
+  function jurnalDetail(no, state) {
+    const j = GL.journals("ALL").find((x) => x.no === no);
+    if (!j) return;
+    const d = j.lines.reduce((a, l) => a + l.d, 0);
+    const el = modal.open({
+      title: `Jurnal ${j.no}`, icon: "receipt_long", size: "lg",
+      body: `
+        <div class="grid g-2">
+          <dl class="kv"><dt>Tanggal</dt><dd>${tgl(j.tgl)}</dd><dt>Cabang</dt><dd>${esc(UI.cabangNama(j.cabang))}</dd><dt>Sumber</dt><dd>${sumberBadge(j.sumber)}</dd></dl>
+          <dl class="kv"><dt>Referensi</dt><dd class="mono">${esc(j.ref)}</dd><dt>Diposting oleh</dt><dd>${esc(j.user)}</dd><dt>Status</dt><dd>${UI.status("Selesai").replace("Selesai", "Posted")}</dd></dl>
+        </div>
+        <p><b>Keterangan:</b> ${esc(j.ket)}</p>
+        <div class="table-wrap"><table class="tbl compact"><thead><tr><th>Akun</th><th class="num">Debit</th><th class="num">Kredit</th><th></th></tr></thead><tbody>
+          ${j.lines.map((l) => `<tr><td style="padding-left:${l.k ? 34 : 14}px"><span class="mono">${l.akun}</span> ${esc(GL.akun(l.akun).nama)}</td>${dcell(l.d)}${dcell(l.k)}<td class="actions">${btn("", "info", { icon: "menu_book", size: "sm", title: "Buku besar", attrs: toLedger(l.akun) })}</td></tr>`).join("")}
+        </tbody><tfoot><tr><td>Total</td><td class="num">${num(d)}</td><td class="num">${num(d)}</td><td></td></tr></tfoot></table></div>
+        ${j.sumber === "Manual" ? "" : alert("info", "bolt", "Jurnal otomatis", `Dibentuk sistem dari modul <b>${esc(j.sumber)}</b>. Koreksi dilakukan lewat jurnal balik atau dokumen sumbernya.`)}`,
+      foot: `${btn("Tutup", "dark", { attrs: "data-close" })}${btn("Cetak Bukti Jurnal", "teal", { icon: "print", attrs: 'data-toast="Bukti jurnal dikirim ke printer"' })}${btn("Buat Jurnal Balik", "warning", { icon: "undo", attrs: 'id="jv-rev"' })}`,
+    });
+    bindLedgerLinks(el);
+    el.querySelector("#jv-rev").addEventListener("click", () => {
+      jurnalManual(state, { cabang: j.cabang, ref: `REV/${j.no}`, ket: `Jurnal balik atas ${j.no}: ${j.ket}`, lines: j.lines.map((l) => ({ akun: l.akun, d: l.k, k: l.d })) });
+    });
+  }
+
+  window.PAGES.jurnal = {
+    render({ state }) {
+      const cab = scopeCab(state);
+      const all = GL.journals(cab);
+      const list = all.filter((j) => (jFilter.sumber === "Semua" || j.sumber === jFilter.sumber) && (!jFilter.q || `${j.no} ${j.ref} ${j.ket} ${j.lines.map((l) => l.akun + " " + GL.akun(l.akun).nama).join(" ")}`.toLowerCase().includes(jFilter.q.toLowerCase())));
+      const shown = list.slice().reverse().slice(0, jFilter.limit);
+      const sumD = list.reduce((a, j) => a + j.lines.reduce((s, l) => s + l.d, 0), 0);
+      const sumK = list.reduce((a, j) => a + j.lines.reduce((s, l) => s + l.k, 0), 0);
+      const auto = all.filter((j) => j.sumber !== "Manual").length;
+      const pny = all.filter((j) => j.sumber === "Penyesuaian" || j.sumber === "Pajak").length;
+      const cnt = {};
+      all.forEach((j) => { cnt[j.sumber] = (cnt[j.sumber] || 0) + 1; });
+      return `
+      ${UI.pageHeader({
+        title: "Jurnal Umum",
+        sub: `Seluruh jurnal ${esc(scopeLbl(state))} periode ${periodeTxt()}, otomatis dari transaksi & manual. Terbaru di atas.`,
+        crumbs: ["Akuntansi", "Jurnal Umum"],
+        actions: `${btn("Buat Jurnal Manual", "success", { icon: "add", attrs: 'id="j-new"' })}${btn("Excel", "teal", { icon: "table_view", attrs: 'data-toast="Jurnal umum diekspor ke Excel"' })}${btn("Tutup Buku", "danger", { icon: "lock", attrs: 'id="j-close"' })}`,
+      })}
+      ${integrasi("jurnal")}
+      <div class="grid g-4">
+        ${stat({ label: "Jurnal periode ini", value: num(all.length), icon: "edit_note", tone: "primary", foot: `${num(all.reduce((a, j) => a + j.lines.length, 0))} baris posting`, hero: true })}
+        ${stat({ label: "Jurnal otomatis", value: num(auto), icon: "bolt", tone: "info", foot: `${pct(auto / all.length * 100)} dari modul operasional` })}
+        ${stat({ label: "Manual & penyesuaian", value: num(all.length - auto + pny), icon: "tune", tone: "purple", foot: `${all.length - auto} manual · ${pny} penyesuaian/pajak` })}
+        ${stat({ label: "Kontrol debit = kredit", value: sumD === sumK ? "Seimbang" : "Selisih", icon: sumD === sumK ? "verified" : "error", tone: sumD === sumK ? "teal" : "danger", foot: `Σ ${short(sumD)} (hasil filter)` })}
+      </div>
+      <section class="card">
+        <div class="filterbar">
+          <div class="field" style="max-width:none;flex:2 1 260px"><label for="j-q">Cari</label><div class="input-icon">${icon("search")}<input id="j-q" class="input" type="search" value="${esc(jFilter.q)}" placeholder="No. jurnal, referensi, keterangan, kode/nama akun"></div></div>
+          ${input("Dari", { type: "date", value: GL.periode().from })}
+          ${input("Sampai", { type: "date", value: GL.periode().to })}
+          <div class="actions">${btn("Terapkan", "primary", { icon: "filter_alt", attrs: 'id="j-apply"' })}</div>
+        </div>
+        <div style="padding:12px 20px 0"><div class="chips" data-chip-group="j-src" id="j-src">
+          ${["Semua", ...GL.SUMBER].filter((s) => s === "Semua" || cnt[s]).map((s) => `<button type="button" class="chip ${s === jFilter.sumber ? "active" : ""}" data-s="${s}">${s}${s !== "Semua" ? ` <span class="badge gray">${cnt[s]}</span>` : ""}</button>`).join("")}
+        </div></div>
+        <div class="table-wrap"><table class="tbl compact">
+          <thead><tr><th>Tanggal</th><th>No. jurnal / ref</th><th>Akun</th><th>Keterangan</th><th class="num">Debit</th><th class="num">Kredit</th></tr></thead>
+          <tbody>${shown.length ? journalRows(shown) : `<tr><td colspan="6"><div class="empty">${icon("search_off")}<b>Tidak ada jurnal</b><span>Ubah kata kunci atau sumber jurnal.</span></div></td></tr>`}</tbody>
+          <tfoot><tr><td colspan="4">Total ${num(list.length)} jurnal (hasil filter)</td><td class="num">${num(sumD)}</td><td class="num">${num(sumK)}</td></tr></tfoot>
+        </table></div>
+        <div class="card-foot"><span class="small muted">Menampilkan ${num(shown.length)} dari ${num(list.length)} jurnal</span><span class="spacer"></span>
+          ${shown.length < list.length ? btn("Muat 25 jurnal lagi", "info", { icon: "expand_more", attrs: 'id="j-more"' }) : ""}</div>
+      </section>`;
+    },
+    mount(root, { state }) {
+      bindLedgerLinks(root);
+      root.querySelector("#j-new").addEventListener("click", () => jurnalManual(state));
+      root.querySelectorAll("[data-jv]").forEach((b) => b.addEventListener("click", () => jurnalDetail(b.dataset.jv, state)));
+      const q = root.querySelector("#j-q");
+      const go = () => { jFilter.q = q.value.trim(); jFilter.limit = 25; APP.render(); };
+      root.querySelector("#j-apply").addEventListener("click", go);
+      q.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+      root.querySelector("#j-src").addEventListener("click", (e) => { const c = e.target.closest("[data-s]"); if (c) { jFilter.sumber = c.dataset.s; jFilter.limit = 25; APP.render(); } });
+      root.querySelector("#j-more")?.addEventListener("click", () => { jFilter.limit += 25; APP.render(); });
+      root.querySelector("#j-close").addEventListener("click", () => confirmBox({
+        title: "Tutup buku periode ini?", icon: "lock",
+        msg: `Periode <b>${GL.periode().label}</b> akan dikunci. Jurnal baru tidak dapat diposting ke periode ini, dan saldo akun nominal (pendapatan & beban) ditutup ke <b>Laba Tahun Berjalan</b>. Pastikan neraca saldo seimbang dan semua penyesuaian sudah diposting.`,
+        okLabel: "Tutup buku", onOk: () => toast("Simulasi: tutup buku dijadwalkan pada akhir bulan setelah verifikasi Keuangan", "info"),
+      }));
+    },
+  };
+
+  /* =====================================================================
+     3. KARTU BUKU BESAR
+     ===================================================================== */
+  window.PAGES.bukubesar = {
+    render({ state }) {
+      const cab = scopeCab(state);
+      const a = GL.akun(GL.ui.akun) || GL.akun("1-1103");
+      const L = GL.ledger(a.kode, cab);
+      const ns = (v) => normalSaldo(a, v);
+      const idx = GL.DETAIL.findIndex((x) => x.kode === a.kode);
+      const prev = GL.DETAIL[idx - 1], next = GL.DETAIL[idx + 1];
+      // saldo akhir harian untuk grafik
+      const P = GL.periode();
+      const days = Number(P.to.slice(8));
+      const daily = [];
+      let run = L.awal, ri = 0;
+      for (let d = 1; d <= days; d++) {
+        const ds = `${P.from.slice(0, 8)}${String(d).padStart(2, "0")}`;
+        while (ri < L.rows.length && L.rows[ri].tgl <= ds) { run = L.rows[ri].saldo; ri++; }
+        daily.push(ns(run));
+      }
+      const MAXROW = 400;
+      const rows = L.rows.slice(0, MAXROW);
+      return `
+      ${UI.pageHeader({
+        title: "Kartu Buku Besar",
+        sub: `Mutasi & saldo berjalan per akun untuk ${esc(scopeLbl(state))}, periode ${periodeTxt()}.`,
+        crumbs: ["Akuntansi", "Buku Besar"],
+        actions: `${btn("Excel", "teal", { icon: "table_view", attrs: 'data-toast="Kartu buku besar diekspor ke Excel"' })}${btn("PDF", "danger", { icon: "picture_as_pdf", attrs: 'data-toast="Kartu buku besar diekspor ke PDF"' })}${btn("Jurnal Umum", "glass", { icon: "edit_note", attrs: 'data-go="jurnal"' })}`,
+      })}
+      ${integrasi("bukubesar")}
+      <section class="card"><div class="filterbar" style="border-radius:var(--radius-lg)">
+        <div class="field" style="max-width:none;flex:3 1 320px"><label for="bb-akun">Akun</label><select id="bb-akun" class="select">${akunOptions(a.kode)}</select></div>
+        ${select("Cabang", UI.cabangOptions(), { value: cab, id: "bb-cab" })}
+        <div class="actions">
+          ${btn("", "dark", { icon: "chevron_left", title: "Akun sebelumnya", attrs: prev ? `${toLedger(prev.kode)}` : "disabled" })}
+          ${btn("", "dark", { icon: "chevron_right", title: "Akun berikutnya", attrs: next ? `${toLedger(next.kode)}` : "disabled" })}
+        </div>
+      </div></section>
+
+      <div class="grid g-4">
+        ${stat({ label: `${a.kode} · ${a.nama}`, value: rp(ns(L.akhir)), icon: "menu_book", tone: "primary", foot: `Saldo akhir per ${tgl(P.to)} · normal ${a.normal === "D" ? "debit" : "kredit"}`, hero: true })}
+        ${stat({ label: "Saldo awal", value: rp(ns(L.awal)), icon: "first_page", tone: "dark", foot: GL.isNeraca(a.kode) ? `per ${tgl(P.from)}` : "akun nominal mulai dari 0 tiap periode" })}
+        ${stat({ label: "Total debit", value: rp(L.d), icon: "add_circle", tone: "info", foot: `${num(L.rows.filter((r) => r.d).length)} posting` })}
+        ${stat({ label: "Total kredit", value: rp(L.k), icon: "remove_circle", tone: "warning", foot: `${num(L.rows.filter((r) => r.k).length)} posting` })}
+      </div>
+
+      <div class="grid g-2-1">
+        ${card({
+          title: "Saldo akhir harian", desc: `Rp, sisi normal ${a.normal === "D" ? "debit" : "kredit"}`, icon: "show_chart",
+          body: chart("bb-ch", (k, el) => ({
+            type: "line",
+            data: { labels: daily.map((_, i) => String(i + 1)), datasets: [{ label: "Saldo", data: daily, borderColor: k.c1, backgroundColor: areaFill(el, k.c1), fill: true, tension: 0.25, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5 }] },
+            options: { interaction: { mode: "index", intersect: false }, scales: { y: { ticks: { callback: rpTick }, grid: { color: k.grid } }, x: { grid: { display: false }, title: { display: true, text: `Tanggal (${P.label})` } } }, plugins: { tooltip: { callbacks: { title: (c) => `${c[0].label} ${P.label}`, label: (c) => ` Saldo: ${rp(c.raw)}` } } } },
+          }), "sm"),
+        })}
+        ${card({
+          title: "Info akun", icon: "info", tone: "cyan",
+          body: `<dl class="kv">
+            <dt>Kode</dt><dd class="mono">${a.kode}</dd>
+            <dt>Nama</dt><dd>${esc(a.nama)}</dd>
+            <dt>Tipe</dt><dd>${tipeBadge(a.tipe)}</dd>
+            <dt>Saldo normal</dt><dd>${normalBadge(a.normal)}</dd>
+            <dt>Laporan</dt><dd>${a.laporan}</dd>
+            <dt>Induk</dt><dd>${esc((GL.akun(a.parent) || {}).nama || "-")}</dd>
+          </dl>
+          <div class="row" style="margin-top:14px">${btn("Lihat di " + (GL.isNeraca(a.kode) ? "Neraca" : "Laba Rugi"), "primary", { size: "sm", icon: "arrow_forward", attrs: `data-go="${GL.isNeraca(a.kode) ? "neraca" : "lap-labarugi"}"` })}${btn("Neraca Saldo", "info", { size: "sm", icon: "balance", attrs: 'data-go="neracasaldo"' })}</div>`,
+        })}
+      </div>
+
+      ${card({
+        title: `Buku besar ${a.kode} · ${esc(a.nama)}`, desc: `${num(L.rows.length)} transaksi${L.rows.length > MAXROW ? ` · ditampilkan ${MAXROW} pertama` : ""}`, icon: "receipt_long", flush: true,
+        body: `<div class="table-wrap"><table class="tbl compact">
+          <thead><tr><th>Tanggal</th><th>No. jurnal</th><th>Referensi</th><th>Keterangan</th><th>Cabang</th><th class="num">Debit</th><th class="num">Kredit</th><th class="num">Saldo</th><th>D/K</th></tr></thead>
+          <tbody>
+            <tr class="group"><td>${tgl(P.from)}</td><td colspan="6">Saldo awal</td><td class="num">${num(Math.abs(L.awal))}</td><td>${L.awal >= 0 ? "D" : "K"}</td></tr>
+            ${rows.map((r) => `<tr><td class="nowrap">${tgl(r.tgl)}</td><td><button type="button" class="btn light sm" data-jv="${r.no}" style="font-family:var(--mono)">${r.no}</button></td><td class="mono small">${esc(r.ref)}</td><td>${esc(r.ket)}<div class="t-sub">${esc(r.sumber)}</div></td><td>${cabBadge(r.cabang)}</td>${dcell(r.d)}${dcell(r.k)}<td class="num strong">${num(Math.abs(r.saldo))}</td><td>${r.saldo >= 0 ? "D" : "K"}</td></tr>`).join("")}
+          </tbody>
+          <tfoot><tr><td colspan="5">Mutasi periode & saldo akhir</td><td class="num">${num(L.d)}</td><td class="num">${num(L.k)}</td><td class="num">${num(Math.abs(L.akhir))}</td><td>${L.akhir >= 0 ? "D" : "K"}</td></tr></tfoot>
+        </table></div>`,
+      })}`;
+    },
+    mount(root, { state }) {
+      bindLedgerLinks(root);
+      root.querySelector("#bb-akun").addEventListener("change", (e) => { GL.ui.akun = e.target.value; APP.render(); });
+      root.querySelector("#bb-cab").addEventListener("change", (e) => {
+        APP.state.cabang = e.target.value;
+        const bs = document.getElementById("branch-select"); if (bs) bs.value = e.target.value;
+        APP.render();
+      });
+      root.querySelectorAll("[data-jv]").forEach((b) => b.addEventListener("click", () => jurnalDetail(b.dataset.jv, state)));
+    },
+  };
+
+  /* =====================================================================
+     4. NERACA SALDO (+ Neraca Lajur)
+     ===================================================================== */
+  window.PAGES.neracasaldo = {
+    render({ state }) {
+      const cab = scopeCab(state);
+      const tb = GL.trial(cab).filter((r) => r.awal || r.d || r.k);
+      const T = { awD: 0, awK: 0, d: 0, k: 0, akD: 0, akK: 0 };
+      tb.forEach((r) => { if (r.awal > 0) T.awD += r.awal; else T.awK -= r.awal; T.d += r.d; T.k += r.k; if (r.akhir > 0) T.akD += r.akhir; else T.akK -= r.akhir; });
+      const ok = Math.round(T.akD) === Math.round(T.akK);
+      const groups = Object.values(GL.TIPE);
+      const nsRows = groups.map((g) => {
+        const rs = tb.filter((r) => r.tipe === g);
+        if (!rs.length) return "";
+        return `<tr class="group"><td colspan="9">${esc(g)}</td></tr>` + rs.map((r) => `<tr>
+          <td><button type="button" class="mono small" ${toLedger(r.kode)} style="background:none;border:0;color:var(--c-primary-2);cursor:pointer;padding:0">${r.kode}</button></td><td>${esc(r.nama)}</td>
+          ${dk(r.awal)}${dcell(r.d)}${dcell(r.k)}${dk(r.akhir)}
+          <td class="actions">${btn("", "info", { icon: "menu_book", size: "sm", title: "Buku besar", attrs: toLedger(r.kode) })}</td></tr>`).join("");
+      }).join("");
+
+      // Neraca lajur
+      const lr = tb.filter((r) => !GL.isNeraca(r.kode));
+      const nr = tb.filter((r) => GL.isNeraca(r.kode));
+      const W = { nsD: T.akD, nsK: T.akK, lrD: 0, lrK: 0, nD: 0, nK: 0 };
+      lr.forEach((r) => { if (r.akhir > 0) W.lrD += r.akhir; else W.lrK -= r.akhir; });
+      nr.forEach((r) => { if (r.akhir > 0) W.nD += r.akhir; else W.nK -= r.akhir; });
+      const laba = W.lrK - W.lrD;
+      const wRow = (r) => { const isN = GL.isNeraca(r.kode); return `<tr><td class="mono small">${r.kode}</td><td>${esc(r.nama)}</td>${dk(r.akhir)}${isN ? dk(0) : dk(r.akhir)}${isN ? dk(r.akhir) : dk(0)}</tr>`; };
+
+      return `
+      ${UI.pageHeader({
+        title: "Neraca Saldo",
+        sub: `Saldo awal, mutasi & saldo akhir seluruh akun ${esc(scopeLbl(state))} periode ${periodeTxt()}. Sumber: jurnal umum.`,
+        crumbs: ["Akuntansi", "Neraca Saldo"],
+        actions: `${btn("Excel", "teal", { icon: "table_view", attrs: 'data-toast="Neraca saldo diekspor ke Excel"' })}${btn("PDF", "danger", { icon: "picture_as_pdf", attrs: 'data-toast="Neraca saldo diekspor ke PDF"' })}${btn("Jurnal Penyesuaian", "glass", { icon: "tune", attrs: 'data-go="jurnal"' })}`,
+      })}
+      ${integrasi("neracasaldo")}
+      <div class="grid g-4">
+        ${stat({ label: "Total saldo debit", value: short(T.akD), icon: "add_circle", tone: "primary", foot: `mutasi debit ${short(T.d)}`, hero: true })}
+        ${stat({ label: "Total saldo kredit", value: short(T.akK), icon: "remove_circle", tone: "warning", foot: `mutasi kredit ${short(T.k)}` })}
+        ${stat({ label: "Status", value: ok ? "Seimbang" : "Tidak seimbang", icon: ok ? "verified" : "error", tone: ok ? "teal" : "danger", foot: `selisih ${rp(T.akD - T.akK)}` })}
+        ${stat({ label: "Laba bersih berjalan", value: short(laba), icon: "trending_up", tone: "success", foot: "pendapatan − beban (kolom laba rugi)" })}
+      </div>
+      ${ok ? alert("success", "task_alt", "Neraca saldo seimbang", `Total debit ${rp(T.akD)} = total kredit ${rp(T.akK)}. Siap disusun menjadi laporan laba rugi dan neraca.`) : alert("danger", "error", "Neraca saldo tidak seimbang", "Periksa jurnal yang belum seimbang sebelum menyusun laporan keuangan.")}
+      <div>${tabs("ns-tab", [{ id: "ns", label: "Neraca Saldo", icon: "balance" }, { id: "lajur", label: "Neraca Lajur (Worksheet)", icon: "view_week" }], "ns")}</div>
+
+      <div data-panel-group="ns-tab" data-panel="ns">
+        ${card({
+          title: "Neraca saldo", desc: `${num(tb.length)} akun bersaldo · klik kode untuk buka buku besar`, icon: "balance", flush: true,
+          body: `<div class="table-wrap"><table class="tbl compact">
+            <thead>
+              <tr><th rowspan="2">Kode</th><th rowspan="2">Nama akun</th><th colspan="2" class="center">Saldo awal</th><th colspan="2" class="center">Mutasi</th><th colspan="2" class="center">Saldo akhir</th><th rowspan="2"></th></tr>
+              <tr><th class="num">Debit</th><th class="num">Kredit</th><th class="num">Debit</th><th class="num">Kredit</th><th class="num">Debit</th><th class="num">Kredit</th></tr>
+            </thead>
+            <tbody>${nsRows}</tbody>
+            <tfoot><tr><td colspan="2">Total</td><td class="num">${num(T.awD)}</td><td class="num">${num(T.awK)}</td><td class="num">${num(T.d)}</td><td class="num">${num(T.k)}</td><td class="num">${num(T.akD)}</td><td class="num">${num(T.akK)}</td><td></td></tr></tfoot>
+          </table></div>`,
+        })}
+      </div>
+
+      <div data-panel-group="ns-tab" data-panel="lajur" hidden>
+        ${card({
+          title: "Neraca lajur", desc: "Neraca saldo dipisah ke kolom Laba Rugi dan Neraca; laba bersih menyeimbangkan keduanya", icon: "view_week", tone: "purple", flush: true,
+          body: `<div class="table-wrap"><table class="tbl compact">
+            <thead>
+              <tr><th rowspan="2">Kode</th><th rowspan="2">Nama akun</th><th colspan="2" class="center">Neraca saldo</th><th colspan="2" class="center">Laba rugi</th><th colspan="2" class="center">Neraca</th></tr>
+              <tr><th class="num">Debit</th><th class="num">Kredit</th><th class="num">Debit</th><th class="num">Kredit</th><th class="num">Debit</th><th class="num">Kredit</th></tr>
+            </thead>
+            <tbody>${nr.map(wRow).join("")}${lr.map(wRow).join("")}
+              <tr class="group"><td colspan="2">Jumlah</td><td class="num">${num(W.nsD)}</td><td class="num">${num(W.nsK)}</td><td class="num">${num(W.lrD)}</td><td class="num">${num(W.lrK)}</td><td class="num">${num(W.nD)}</td><td class="num">${num(W.nK)}</td></tr>
+              <tr><td></td><td class="strong">Laba bersih periode berjalan</td><td></td><td></td><td class="num strong">${laba >= 0 ? num(laba) : ""}</td><td class="num strong">${laba < 0 ? num(-laba) : ""}</td><td class="num strong">${laba < 0 ? num(-laba) : ""}</td><td class="num strong">${laba >= 0 ? num(laba) : ""}</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">Total seimbang</td><td class="num">${num(W.nsD)}</td><td class="num">${num(W.nsK)}</td><td class="num">${num(W.lrD + Math.max(laba, 0))}</td><td class="num">${num(W.lrK + Math.max(-laba, 0))}</td><td class="num">${num(W.nD + Math.max(-laba, 0))}</td><td class="num">${num(W.nK + Math.max(laba, 0))}</td></tr></tfoot>
+          </table></div>`,
+          foot: `${btn("Buka Laba Rugi", "primary", { size: "sm", icon: "trending_up", attrs: 'data-go="lap-labarugi"' })}${btn("Buka Neraca", "info", { size: "sm", icon: "account_balance", attrs: 'data-go="neraca"' })}`,
+        })}
+      </div>`;
+    },
+    mount(root) { bindLedgerLinks(root); },
+  };
+
+  /* =====================================================================
+     5. NERACA (Laporan Posisi Keuangan)
+     ===================================================================== */
+  window.PAGES.neraca = {
+    render({ state }) {
+      const cab = scopeCab(state);
+      const ALL = cab === "ALL";
+      const N1 = GL.neraca(cab, "akhir"), N0 = GL.neraca(cab, "awal");
+      const E = ALL ? GL.eliminasi() : null;
+      const e0 = ALL ? { pAC: N0.piutangAC, hAC: N0.hutangAC } : null;
+      const P = GL.periode();
+      const lrYTD = GL.labaRugi(cab, P.m + 1);
+      // akun-akun per sisi; saldo ditampilkan menurut sisi normal
+      const line = (kode, v1, v0, extra = "") => {
+        const a = GL.akun(kode);
+        return `<tr><td style="padding-left:28px"><button type="button" class="mono small" ${toLedger(kode)} style="background:none;border:0;color:var(--c-primary-2);cursor:pointer;padding:0">${kode}</button> ${esc(a.nama)}${extra}</td><td class="num">${acc(v1)}</td><td class="num muted">${acc(v0)}</td></tr>`;
+      };
+      const sub = (l, v1, v0, strong = true) => `<tr><td class="${strong ? "strong" : ""}">${l}</td><td class="num ${strong ? "strong" : ""}">${acc(v1)}</td><td class="num muted ${strong ? "strong" : ""}">${acc(v0)}</td></tr>`;
+      const grp = (l) => `<tr class="group"><td colspan="3">${l}</td></tr>`;
+      const keys = (pre) => Object.keys(N1.val).filter((k) => k.startsWith(pre) && !GL.akun(k).header).sort();
+      const V = (N, k, sign) => sign * (N.val[k] || 0);
+      const elimRow = (l, v1, v0) => `<tr><td style="padding-left:28px"><span class="badge pink">Eliminasi</span> ${l}</td><td class="num">${acc(v1)}</td><td class="num muted">${acc(v0)}</td></tr>`;
+
+      const pAC1 = ALL ? E.piutangAC : 0, pAC0 = ALL ? e0.pAC : 0;
+      const hAC1 = ALL ? E.hutangAC : 0, hAC0 = ALL ? e0.hAC : 0;
+      const aset1 = N1.aset - pAC1, aset0 = N0.aset - pAC0;
+      const liab1 = N1.liab - hAC1, liab0 = N0.liab - hAC0;
+      const al1 = N1.al - pAC1, al0 = N0.al - pAC0;
+      const lp1 = N1.liabPendek - hAC1, lp0 = N0.liabPendek - hAC0;
+
+      const asetTbl = `
+        ${grp("Aset lancar")}
+        ${keys("1-1").map((k) => line(k, V(N1, k, 1), V(N0, k, 1))).join("")}
+        ${ALL ? elimRow("Piutang antar cabang", -pAC1, -pAC0) : ""}
+        ${sub("Jumlah aset lancar", al1, al0)}
+        ${grp("Aset tidak lancar")}
+        ${keys("1-2").map((k) => line(k, V(N1, k, 1), V(N0, k, 1))).join("")}
+        ${sub("Jumlah aset tidak lancar", N1.tetap, N0.tetap)}`;
+      const leTbl = `
+        ${grp("Liabilitas jangka pendek")}
+        ${keys("2-1").map((k) => line(k, V(N1, k, -1), V(N0, k, -1))).join("")}
+        ${ALL ? elimRow("Hutang antar cabang", -hAC1, -hAC0) : ""}
+        ${sub("Jumlah liabilitas jangka pendek", lp1, lp0)}
+        ${grp("Liabilitas jangka panjang")}
+        ${keys("2-2").map((k) => line(k, V(N1, k, -1), V(N0, k, -1))).join("")}
+        ${sub("Jumlah liabilitas", liab1, liab0)}
+        ${grp("Ekuitas")}
+        ${keys("3-").map((k) => line(k, V(N1, k, -1), V(N0, k, -1), k === "3-1301" ? ` <button type="button" class="badge green" data-go="lap-labarugi" style="border:0;cursor:pointer">dari Laba Rugi</button>` : "")).join("")}
+        ${sub("Jumlah ekuitas", N1.ekuitas, N0.ekuitas)}`;
+      const table = (head, body, t1, t0, tl) => `<div class="table-wrap"><table class="tbl compact">
+        <thead><tr><th>${head} <span class="t-sub">(Rp)</span></th><th class="num">${tgl(P.to)}</th><th class="num">${tgl(P.from)}</th></tr></thead>
+        <tbody>${body}</tbody><tfoot><tr><td>${tl}</td><td class="num">${num(t1)}</td><td class="num">${num(t0)}</td></tr></tfoot></table></div>`;
+      const le1 = liab1 + N1.ekuitas, le0 = liab0 + N0.ekuitas;
+      const ok = Math.round(aset1) === Math.round(le1) && Math.round(aset0) === Math.round(le0);
+      const cr = al1 / lp1, qr = (al1 - N1.persediaan) / lp1, der = liab1 / N1.ekuitas, roe = lrYTD.lb / N1.ekuitas * 100;
+      const comp = [["Kas & bank", N1.kas], ["Piutang", N1.piutang + N1.piutangAC - pAC1], ["Persediaan", N1.persediaan], ["Dibayar dimuka", N1.dimuka], ["Aset tetap (neto)", N1.tetap]];
+
+      return `
+      ${UI.pageHeader({
+        title: "Neraca",
+        sub: `Laporan posisi keuangan ${esc(ALL ? "konsolidasian semua cabang (setelah eliminasi antar cabang)" : scopeLbl(state))} per ${tgl(P.to)}, dibanding awal bulan. Disusun otomatis dari neraca saldo.`,
+        crumbs: ["Akuntansi", "Neraca"],
+        actions: `${btn("Excel", "teal", { icon: "table_view", attrs: 'data-toast="Neraca diekspor ke Excel"' })}${btn("PDF", "danger", { icon: "picture_as_pdf", attrs: 'data-toast="Neraca diekspor ke PDF"' })}${btn(ALL ? "Per Cabang" : "Konsolidasi", "glass", { icon: "hub", attrs: 'data-go="lap-konsolidasi"' })}`,
+      })}
+      ${integrasi("neraca")}
+      <div class="grid g-4">
+        ${stat({ label: "Total aset", value: short(aset1), icon: "account_balance", tone: "primary", delta: (aset1 - aset0) / aset0 * 100, foot: "vs awal bulan", hero: true })}
+        ${stat({ label: "Total liabilitas", value: short(liab1), icon: "credit_card", tone: "warning", foot: `${pct(liab1 / aset1 * 100)} dari aset` })}
+        ${stat({ label: "Total ekuitas", value: short(N1.ekuitas), icon: "savings", tone: "purple", foot: `laba tahun berjalan ${short(N1.lbj)}` })}
+        ${stat({ label: "Kontrol neraca", value: ok ? "Seimbang" : "Tidak seimbang", icon: ok ? "verified" : "error", tone: ok ? "teal" : "danger", foot: "Aset = Liabilitas + Ekuitas" })}
+      </div>
+      ${ALL ? alert("info", "hub", "Neraca konsolidasian", `Piutang antar cabang ${rp(pAC1)} dieliminasi terhadap hutang antar cabang ${rp(hAC1)}. Penjualan internal ${rp(E.penjualanInternal)} dan HPP internal-nya juga dieliminasi di laba rugi konsolidasi.`) : ""}
+      <div class="grid g-2">
+        ${card({ title: "Aset", icon: "account_balance_wallet", flush: true, body: table("Aset", asetTbl, aset1, aset0, "TOTAL ASET") })}
+        ${card({ title: "Liabilitas & ekuitas", icon: "request_quote", tone: "amber", flush: true, body: table("Liabilitas & ekuitas", leTbl, le1, le0, "TOTAL LIABILITAS & EKUITAS") })}
+      </div>
+      <div class="grid g-3-2">
+        ${card({
+          title: "Komposisi aset", desc: `Per ${tgl(P.to)}, Rp`, icon: "donut_small", tone: "cyan",
+          body: `${legend(comp.map((c, i) => [c[0], `var(--chart-${i + 1})`]))}
+            ${chart("nr-ch", (k) => ({
+              type: "bar",
+              data: { labels: comp.map((c) => c[0]), datasets: [{ label: "Nilai", data: comp.map((c) => c[1]), backgroundColor: [k.c1, k.c2, k.c3, k.c4, k.c5], borderRadius: 4, borderSkipped: "left" }] },
+              options: { indexAxis: "y", scales: { x: { beginAtZero: true, ticks: { callback: rpTick }, grid: { color: k.grid } }, y: { grid: { display: false } } }, plugins: { tooltip: { callbacks: { label: (c) => ` ${rp(c.raw)} (${pct(c.raw / aset1 * 100)})` } } } },
+            }), "sm")}`,
+        })}
+        ${card({
+          title: "Rasio keuangan", desc: "Dihitung dari neraca & laba rugi s.d. hari ini", icon: "speed", tone: "green",
+          body: `<div class="stack">
+            ${[["Current ratio", cr.toLocaleString("id-ID", { maximumFractionDigits: 2 }) + "×", "aset lancar ÷ liabilitas pendek", cr >= 1.5], ["Quick ratio", qr.toLocaleString("id-ID", { maximumFractionDigits: 2 }) + "×", "tanpa persediaan", qr >= 0.8], ["Debt to equity", der.toLocaleString("id-ID", { maximumFractionDigits: 2 }) + "×", "liabilitas ÷ ekuitas", der <= 1], ["ROE (YTD)", pct(roe), `laba bersih Jan–${GL.BULAN[P.m].slice(0, 3)} ${short(lrYTD.lb)}`, roe >= 10]].map(([l, v, d, good]) => `
+              <div class="row between"><div><div class="strong">${l}</div><div class="small muted">${d}</div></div><div class="row" style="gap:8px"><b class="num" style="font-size:18px">${v}</b>${badge(good ? "Sehat" : "Pantau", good ? "green" : "amber", { dot: true })}</div></div>`).join('<div class="divider"></div>')}
+          </div>`,
+        })}
+      </div>`;
+    },
+    mount(root) { bindLedgerLinks(root); },
   };
 })();
 
@@ -8905,12 +10034,19 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size
       { id: "pelanggan", label: "Pasien & Member", icon: "groups" },
       { id: "dokter", label: "Dokter", icon: "stethoscope" },
     ] },
+    { group: "Akuntansi & Keuangan", items: [
+      { id: "coa", label: "Chart of Account", icon: "account_tree" },
+      { id: "jurnal", label: "Jurnal Umum", icon: "edit_note" },
+      { id: "bukubesar", label: "Kartu Buku Besar", icon: "menu_book" },
+      { id: "neracasaldo", label: "Neraca Saldo", icon: "balance" },
+      { id: "lap-labarugi", label: "Laba Rugi", icon: "trending_up" },
+      { id: "neraca", label: "Neraca", icon: "account_balance" },
+    ] },
     { group: "Laporan", items: [
       { id: "lap-penjualan", label: "Laporan Penjualan", icon: "monitoring" },
       { id: "lap-cabang", label: "Laporan Cabang", icon: "store" },
       { id: "lap-konsolidasi", label: "Laporan Konsolidasi", icon: "account_tree" },
       { id: "lap-sales", label: "Laporan Sales", icon: "badge" },
-      { id: "lap-labarugi", label: "Laba Rugi", icon: "balance" },
       { id: "lap-stok", label: "Laporan Persediaan", icon: "warehouse" },
       { id: "lap-pembelian", label: "Laporan Pembelian", icon: "shopping_bag" },
       { id: "lap-kadaluarsa", label: "Laporan Kedaluwarsa", icon: "timer_off" },
