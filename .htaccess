@@ -1,5 +1,41 @@
-# Blokir akses ke metadata repo & berkas non-publik
-RedirectMatch 404 /\.git
-RedirectMatch 404 ^/(scripts|README\.md|\.gitignore)
-Options -Indexes
+# =====================================================================
+# FarmaKasir — konfigurasi keamanan web server (Apache / cPanel)
+# Rincian kebijakan: dokumentasi internal FarmaKasir, bab Keamanan
+# =====================================================================
+
+Options -Indexes -MultiViews
 DirectoryIndex index.html
+ServerSignature Off
+
+# --- HTTPS ------------------------------------------------------------
+# Pengalihan HTTP -> HTTPS diaktifkan lewat cPanel (Domains > Force HTTPS Redirect)
+# agar tidak terjadi redirect loop di belakang reverse proxy hosting.
+
+# --- Blokir metadata repo, dokumentasi internal & berkas non-publik ----
+RedirectMatch 404 /\.(git|github|env|htpasswd)
+RedirectMatch 404 ^/(scripts|docs|dist|node_modules)(/|$)
+RedirectMatch 404 \.(md|mjs|log|bak|sql|ini|sh|lock|json)$
+RedirectMatch 404 ^/\.gitignore$
+
+# --- Header keamanan --------------------------------------------------
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=31536000" env=HTTPS
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+  Header always unset X-Powered-By
+  Header unset X-Powered-By
+</IfModule>
+
+# --- Cache: HTML selalu dicek ulang, aset statis boleh di-cache --------
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "\.(css|js|png|jpg|jpeg|svg|woff2?)$">
+    Header set Cache-Control "public, max-age=86400"
+  </FilesMatch>
+</IfModule>

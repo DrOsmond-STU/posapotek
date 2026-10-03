@@ -138,7 +138,7 @@
 
   function comingSoon(meta) {
     return UI.pageHeader({ title: meta.label, crumbs: [meta.group, meta.label] }) +
-      UI.card({ body: `<div class="empty">${icon("construction")}<b>Modul sedang disiapkan</b><span>Halaman ${esc(meta.label)} belum tersedia di purwarupa ini.</span></div>` });
+      UI.card({ body: `<div class="empty">${icon("construction")}<b>Modul sedang disiapkan</b><span>Halaman ${esc(meta.label)} belum diaktifkan untuk akun ini.</span></div>` });
   }
 
   function renderRoute() {

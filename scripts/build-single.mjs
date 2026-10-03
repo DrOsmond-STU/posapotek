@@ -1,5 +1,5 @@
 // Menggabungkan index.html + CSS + JS menjadi satu file HTML mandiri.
-//   node scripts/build-single.mjs            -> dist/farmakasir-prototype.html (dokumen HTML lengkap)
+//   node scripts/build-single.mjs            -> dist/farmakasir-standalone.html (dokumen HTML lengkap)
 //   node scripts/build-single.mjs --fragment -> dist/farmakasir-artifact.html (tanpa <html>/<head>/<body>, untuk hosting artifact)
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -21,6 +21,6 @@ if (fragment) {
 }
 
 mkdirSync(join(root, "dist"), { recursive: true });
-const out = join(root, "dist", fragment ? "farmakasir-artifact.html" : "farmakasir-prototype.html");
+const out = join(root, "dist", fragment ? "farmakasir-artifact.html" : "farmakasir-standalone.html");
 writeFileSync(out, html);
 console.log(`Ditulis: ${out} (${(html.length / 1024).toFixed(0)} KB)`);

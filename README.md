@@ -1,6 +1,6 @@
-# FarmaKasir — Purwarupa UI/UX POS Apotek
+# FarmaKasir — POS & Manajemen Apotek
 
-Purwarupa (prototype) interaktif aplikasi **POS & manajemen apotek multi-cabang**: penjualan obat, resep dokter, obat racikan, stok & kedaluwarsa, pembelian ke PBF, hingga laporan cabang, konsolidasi, dan sales.
+Aplikasi **POS & manajemen apotek multi-cabang**: penjualan obat, resep dokter, obat racikan, stok & kedaluwarsa, pembelian ke PBF, hingga laporan cabang, konsolidasi, dan sales.
 
 Tema: **biru gradasi**, **tombol melayang berbayang** (efek elevasi, bayangan berwarna, terangkat saat hover), dan **warna tombol berbeda per fungsi** agar mudah dikenali.
 
@@ -12,14 +12,14 @@ Tidak perlu build. Buka `index.html` langsung di browser, atau jalankan server s
 npx serve .          # atau: python3 -m http.server 8080
 ```
 
-Versi satu file (semua CSS/JS digabung) tersedia di `dist/farmakasir-prototype.html`. Untuk membuat ulang:
+Versi satu file (semua CSS/JS digabung) tersedia di `dist/farmakasir-standalone.html`. Untuk membuat ulang:
 
 ```bash
-node scripts/build-single.mjs              # dist/farmakasir-prototype.html
+node scripts/build-single.mjs              # dist/farmakasir-standalone.html
 node scripts/build-single.mjs --fragment   # dist/farmakasir-artifact.html (untuk hosting artifact)
 ```
 
-Butuh koneksi internet untuk font (Google Fonts: Plus Jakarta Sans, JetBrains Mono, Material Symbols) dan Chart.js (cdnjs).
+Butuh koneksi internet untuk font (Google Fonts: Plus Jakarta Sans, JetBrains Mono, Material Symbols). Chart.js 4.4.1 di-host sendiri di `assets/vendor/`.
 
 ## Modul & halaman
 
@@ -72,3 +72,9 @@ scripts/build-single.mjs  # penggabung satu file
 ```
 
 Semua data bersifat contoh/fiktif untuk keperluan demo.
+
+## Dokumentasi & keamanan
+
+- Dokumentasi lengkap (produk, arsitektur, modul, akuntansi, model data, keamanan, deployment) tersedia sebagai dokumen internal CV. Semesta Teknologi Utama.
+- Kebijakan pelaporan kerentanan: [`SECURITY.md`](SECURITY.md)
+- Konfigurasi keamanan web server (CSP, HSTS, header, blokir berkas non-publik): [`.htaccess`](.htaccess)

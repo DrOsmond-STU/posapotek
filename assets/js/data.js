@@ -1,5 +1,5 @@
 /* =====================================================================
-   Data contoh (mock) untuk purwarupa. Semua angka fiktif.
+   Data akun demo (Apotek Sehat Bersama, 5 cabang). Semua angka fiktif.
    ===================================================================== */
 (function () {
   const TODAY = new Date();
